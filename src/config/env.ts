@@ -21,4 +21,8 @@ export const env = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   databaseUrl: checkRequiredEnvVars("DATABASE_URL"),
   redisUrl: checkRequiredEnvVars("REDIS_URL"),
+  corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
+    .split(",")
+    .map((origin) => origin.trim())
+    .filter(Boolean),
 };
