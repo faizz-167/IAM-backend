@@ -68,3 +68,10 @@ export class ConflictError extends RequestError {
     this.name = "ConflictError";
   }
 }
+
+export class InternalServerError extends RequestError {
+  constructor(message: string = "Internal Server Error") {
+    super(500, message);
+    this.name = "InternalServerError";
+  }
+}

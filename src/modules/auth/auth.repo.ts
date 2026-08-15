@@ -1,0 +1,103 @@
+import { sql } from "kysely";
+import { db } from "../../database";
+import { InternalServerError } from "../../errors/RequestError";
+import { UserWithCredentials } from "./auth.types";
+
+export const createUser = async (input: {
+  display_name: string;
+  email: string;
+  password_hash: string;
+}): Promise<UserWithCredentials> => {
+  try {
+    return await db.transaction().execute(async (trx) => {
+      const user = await trx
+        .insertInto("users")
+        .values({ display_name: input.display_name })
+        .returning(["id", "display_name", "status", "created_at", "updated_at"])
+        .executeTakeFirstOrThrow();
+
+      const email = await trx
+        .insertInto("user_emails")
+        .values({
+          email: input.email,
+          user_id: user.id,
+          is_primary: true,
+        })
+        .returning("email")
+        .executeTakeFirstOrThrow();
+
+      const password = await trx
+        .insertInto("user_credentials")
+        .values({ user_id: user.id, password_hash: input.password_hash })
+        .returning("password_hash")
+        .executeTakeFirstOrThrow();
+
+      return {
+        id: user.id,
+        display_name: user.display_name,
+        email: email.email,
+        status: user.status,
+        password_hash: password.password_hash,
+        created_at: user.created_at,
+        updated_at: user.updated_at,
+      };
+    });
+  } catch (error) {
+    throw new InternalServerError("Failed to create user");
+  }
+};
+
+export const isUserExists = async (email: string): Promise<boolean> => {
+  const normalizedEmail = email.toLowerCase();
+  const user = await db
+    .selectFrom("user_emails")
+    .where("email", "=", normalizedEmail)
+    .where("is_primary", "=", true)
+    .select("user_id")
+    .executeTakeFirst();
+
+  return user ? true : false;
+};
+
+export const getUserByEmail = async (
+  email: string,
+): Promise<UserWithCredentials | null> => {
+  const normalizedEmail = email.toLowerCase();
+
+  const result = await db
+    .selectFrom("user_emails")
+    .innerJoin("users", "user_emails.user_id", "users.id")
+    .innerJoin("user_credentials", "users.id", "user_credentials.user_id")
+    .where(sql`lower(email)`, "=", normalizedEmail)
+    .where("is_primary", "=", true)
+    .select([
+      "users.id",
+      "users.display_name",
+      "user_emails.email",
+      "users.status",
+      "users.created_at",
+      "users.updated_at",
+      "user_credentials.password_hash",
+    ])
+    .executeTakeFirst();
+
+  return result ?? null;
+};
+
+export const recordSuccessfulLogin = async (userId: string): Promise<void> => {
+  await db
+    .updateTable("users")
+    .set({ last_login_at: new Date().toISOString() })
+    .where("id", "=", userId)
+    .execute();
+};
+
+export const updateLoginAttempt = async (userId: string): Promise<void> => {
+  await db
+    .updateTable("user_credentials")
+    .set({
+      failed_login_attempts: sql`failed_login_attempts + 1`,
+    })
+    .where("user_id", "=", userId)
+    .execute();
+};
