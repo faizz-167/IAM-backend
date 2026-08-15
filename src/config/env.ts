@@ -20,6 +20,7 @@ export const env = {
   jwtSecret: checkRequiredEnvVars("JWT_SECRET"),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   databaseUrl: checkRequiredEnvVars("DATABASE_URL"),
+  logQueries: process.env.LOG_QUERIES ?? "false",
   redisUrl: checkRequiredEnvVars("REDIS_URL"),
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
     .split(",")

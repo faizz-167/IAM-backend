@@ -54,3 +54,17 @@ export class ForbiddenError extends RequestError {
     this.name = "ForbiddenError";
   }
 }
+
+export class UnauthenticatedError extends RequestError {
+  constructor(message: string = "Unauthenticated access") {
+    super(401, message);
+    this.name = "UnauthenticatedError";
+  }
+}
+
+export class ConflictError extends RequestError {
+  constructor(message: string = "Conflict") {
+    super(409, message);
+    this.name = "ConflictError";
+  }
+}
