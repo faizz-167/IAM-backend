@@ -7,7 +7,7 @@ import {
   Updateable,
 } from "kysely";
 
-type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED";
+type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED" | "PENDING";
 
 interface UsersTable {
   id: GeneratedAlways<string>; // uuid

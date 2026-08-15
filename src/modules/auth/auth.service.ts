@@ -9,9 +9,19 @@ import {
 } from "./auth.repo";
 import { LoginUserInput, RegisterUserInput } from "./auth.schema";
 import argon2 from "argon2";
-import { PublicUser, PublicUserWithToken } from "./auth.types";
+import { LoginResult, PublicUser, RefreshResult } from "./auth.types";
 import { convertToPublicUser } from "./auth.utils";
 import { signInToken } from "../../lib/jwt";
+import { generateRefreshToken, hashToken } from "../../lib/token";
+import { env } from "../../config/env";
+import {
+  createSession,
+  findSessionByTokenHash,
+  markSessionReplaced,
+  revokeAllUserSessions,
+  revokeSession,
+  revokeSessionFamily,
+} from "../sessions/sessions.repo";
 
 export const registerUser = async (
   userInput: RegisterUserInput,
@@ -38,7 +48,8 @@ export const registerUser = async (
 
 export const loginUser = async (
   userInput: LoginUserInput,
-): Promise<PublicUserWithToken> => {
+  meta?: { ip_address?: string; user_agent?: string },
+): Promise<LoginResult> => {
   const user = await getUserByEmail(userInput.email);
 
   if (!user) {
@@ -55,11 +66,95 @@ export const loginUser = async (
   }
 
   const accessToken = signInToken(user.id);
+  const refreshToken = generateRefreshToken();
+  const refreshTokenHash = hashToken(refreshToken);
+
+  const expiresAt = new Date(
+    Date.now() + env.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  await createSession({
+    user_id: user.id,
+    refresh_token_hash: refreshTokenHash,
+    expires_at: expiresAt,
+    ip_address: meta?.ip_address ?? null,
+    user_agent: meta?.user_agent ?? null,
+  });
+
   await recordSuccessfulLogin(user.id);
+
   return {
     user: convertToPublicUser(user),
-    token: accessToken,
+    accessToken,
+    refreshToken,
   };
+};
+
+export const refreshAccessToken = async (
+  currentRefreshToken: string,
+  meta?: { ip_address?: string; user_agent?: string },
+): Promise<RefreshResult> => {
+  const tokenHash = hashToken(currentRefreshToken);
+  const session = await findSessionByTokenHash(tokenHash);
+
+  if (!session) {
+    throw new UnauthenticatedError("Invalid refresh token");
+  }
+
+  if (session.revoked_at !== null) {
+    await revokeSessionFamily(session.family_id);
+    throw new UnauthenticatedError(
+      "Refresh token reuse detected — all sessions in this family have been revoked",
+    );
+  }
+
+  if (new Date(session.expires_at) < new Date()) {
+    await revokeSession(session.id);
+    throw new UnauthenticatedError("Refresh token has expired");
+  }
+
+  const user = await getUserById(session.user_id);
+  if (!user || (user.status !== "ACTIVE" && user.status !== "PENDING")) {
+    await revokeSessionFamily(session.family_id);
+    throw new UnauthenticatedError("User account is not active");
+  }
+
+  const newRefreshToken = generateRefreshToken();
+  const newTokenHash = hashToken(newRefreshToken);
+
+  const expiresAt = new Date(
+    Date.now() + env.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
+  const newSession = await createSession({
+    user_id: session.user_id,
+    refresh_token_hash: newTokenHash,
+    expires_at: expiresAt,
+    ip_address: meta?.ip_address ?? null,
+    user_agent: meta?.user_agent ?? null,
+  });
+
+  await markSessionReplaced(session.id, newSession.id);
+
+  const accessToken = signInToken(session.user_id);
+
+  return {
+    accessToken,
+    refreshToken: newRefreshToken,
+  };
+};
+
+export const logoutSession = async (refreshToken: string): Promise<void> => {
+  const tokenHash = hashToken(refreshToken);
+  const session = await findSessionByTokenHash(tokenHash);
+
+  if (session && session.revoked_at === null) {
+    await revokeSession(session.id);
+  }
+};
+
+export const logoutAllSessions = async (userId: string): Promise<void> => {
+  await revokeAllUserSessions(userId);
 };
 
 export const getCurrentUser = async (userId: string): Promise<PublicUser> => {
@@ -68,7 +163,7 @@ export const getCurrentUser = async (userId: string): Promise<PublicUser> => {
     throw new UnauthenticatedError("User not found");
   }
 
-  if (user.status !== "ACTIVE") {
+  if (user.status !== "ACTIVE" && user.status !== "PENDING") {
     throw new UnauthenticatedError("User is not active");
   }
   return convertToPublicUser(user);

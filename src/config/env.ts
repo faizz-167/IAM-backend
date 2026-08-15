@@ -22,6 +22,9 @@ export const env = {
   databaseUrl: checkRequiredEnvVars("DATABASE_URL"),
   logQueries: process.env.LOG_QUERIES ?? "false",
   redisUrl: checkRequiredEnvVars("REDIS_URL"),
+  refreshTokenExpiresInDays: Number(
+    process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS ?? "7",
+  ),
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
     .split(",")
     .map((origin) => origin.trim())

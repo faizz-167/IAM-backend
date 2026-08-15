@@ -1,4 +1,4 @@
-type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED";
+type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED" | "PENDING";
 
 export type UserWithCredentials = {
   id: string;
@@ -15,4 +15,15 @@ export type PublicUser = Omit<UserWithCredentials, "password_hash">;
 export type PublicUserWithToken = {
   user: PublicUser;
   token: string;
+};
+
+export type LoginResult = {
+  user: PublicUser;
+  accessToken: string;
+  refreshToken: string;
+};
+
+export type RefreshResult = {
+  accessToken: string;
+  refreshToken: string;
 };

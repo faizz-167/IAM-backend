@@ -18,4 +18,14 @@ authRouter.post(
   authController.loginController,
 );
 
+authRouter.post("/refresh", authController.refreshController);
+
+authRouter.post("/logout", authController.logoutController);
+
+authRouter.post(
+  "/logout-all",
+  authenticate,
+  authController.logoutAllController,
+);
+
 authRouter.get("/me", authenticate, authController.getCurrentUserController);
