@@ -2,6 +2,7 @@ import { ConflictError, UnauthenticatedError } from "../../errors/RequestError";
 import {
   createUser,
   getUserByEmail,
+  getUserById,
   isUserExists,
   recordSuccessfulLogin,
   updateLoginAttempt,
@@ -59,4 +60,16 @@ export const loginUser = async (
     user: convertToPublicUser(user),
     token: accessToken,
   };
+};
+
+export const getCurrentUser = async (userId: string): Promise<PublicUser> => {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new UnauthenticatedError("User not found");
+  }
+
+  if (user.status !== "ACTIVE") {
+    throw new UnauthenticatedError("User is not active");
+  }
+  return convertToPublicUser(user);
 };

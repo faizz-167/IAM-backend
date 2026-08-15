@@ -101,3 +101,25 @@ export const updateLoginAttempt = async (userId: string): Promise<void> => {
     .where("user_id", "=", userId)
     .execute();
 };
+
+export const getUserById = async (
+  userId: string,
+): Promise<UserWithCredentials | null> => {
+  const result = await db
+    .selectFrom("users")
+    .innerJoin("user_emails", "users.id", "user_emails.user_id")
+    .innerJoin("user_credentials", "users.id", "user_credentials.user_id")
+    .where("users.id", "=", userId)
+    .select([
+      "users.id",
+      "users.display_name",
+      "user_emails.email",
+      "users.status",
+      "users.created_at",
+      "users.updated_at",
+      "user_credentials.password_hash",
+    ])
+    .executeTakeFirst();
+
+  return result ?? null;
+};
