@@ -10,6 +10,7 @@ export const createSession = async (input: Session) => {
       expires_at: input.expires_at,
       ip_address: input.ip_address ?? null,
       user_agent: input.user_agent ?? null,
+      ...(input.family_id ? { family_id: input.family_id } : {}),
     })
     .returning([
       "id",
@@ -60,13 +61,17 @@ export const revokeAllUserSessions = async (userId: string) => {
 export const markSessionReplaced = async (
   sessionId: string,
   replacedById: string,
-) => {
-  await db
+): Promise<boolean> => {
+  const result = await db
     .updateTable("sessions")
     .set({
       replaced_by: replacedById,
       revoked_at: new Date().toISOString(),
     })
     .where("id", "=", sessionId)
-    .execute();
+    .where("revoked_at", "is", null)
+    .returning("id")
+    .executeTakeFirst();
+
+  return result !== undefined;
 };

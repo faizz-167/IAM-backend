@@ -1,7 +1,14 @@
 import { sql } from "kysely";
+import { DatabaseError } from "pg";
 import { db } from "../../database";
-import { InternalServerError } from "../../errors/RequestError";
+import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import { UserWithCredentials } from "./auth.types";
+import {
+  ACCOUNT_LOCKOUT_MINUTES,
+  MAX_FAILED_LOGIN_ATTEMPTS,
+} from "../../constants";
+
+const PG_UNIQUE_VIOLATION = "23505";
 
 export const createUser = async (input: {
   display_name: string;
@@ -19,7 +26,7 @@ export const createUser = async (input: {
       const email = await trx
         .insertInto("user_emails")
         .values({
-          email: input.email,
+          email: input.email.toLowerCase(),
           user_id: user.id,
           is_primary: true,
         })
@@ -38,11 +45,18 @@ export const createUser = async (input: {
         email: email.email,
         status: user.status,
         password_hash: password.password_hash,
+        failed_login_attempts: 0,
+        locked_until: null,
         created_at: user.created_at,
         updated_at: user.updated_at,
       };
     });
   } catch (error) {
+    if (error instanceof DatabaseError && error.code === PG_UNIQUE_VIOLATION) {
+      throw new ConflictError(
+        "A User with this email already exists, please login instead",
+      );
+    }
     throw new InternalServerError("Failed to create user");
   }
 };
@@ -51,7 +65,7 @@ export const isUserExists = async (email: string): Promise<boolean> => {
   const normalizedEmail = email.toLowerCase();
   const user = await db
     .selectFrom("user_emails")
-    .where("email", "=", normalizedEmail)
+    .where(sql`lower(email)`, "=", normalizedEmail)
     .where("is_primary", "=", true)
     .select("user_id")
     .executeTakeFirst();
@@ -78,6 +92,8 @@ export const getUserByEmail = async (
       "users.created_at",
       "users.updated_at",
       "user_credentials.password_hash",
+      "user_credentials.failed_login_attempts",
+      "user_credentials.locked_until",
     ])
     .executeTakeFirst();
 
@@ -90,6 +106,12 @@ export const recordSuccessfulLogin = async (userId: string): Promise<void> => {
     .set({ last_login_at: new Date().toISOString() })
     .where("id", "=", userId)
     .execute();
+
+  await db
+    .updateTable("user_credentials")
+    .set({ failed_login_attempts: 0, locked_until: null })
+    .where("user_id", "=", userId)
+    .execute();
 };
 
 export const updateLoginAttempt = async (userId: string): Promise<void> => {
@@ -97,6 +119,7 @@ export const updateLoginAttempt = async (userId: string): Promise<void> => {
     .updateTable("user_credentials")
     .set({
       failed_login_attempts: sql`failed_login_attempts + 1`,
+      locked_until: sql`CASE WHEN failed_login_attempts + 1 >= ${MAX_FAILED_LOGIN_ATTEMPTS} THEN NOW() + make_interval(mins => ${ACCOUNT_LOCKOUT_MINUTES}) ELSE locked_until END`,
     })
     .where("user_id", "=", userId)
     .execute();
@@ -118,6 +141,8 @@ export const getUserById = async (
       "users.created_at",
       "users.updated_at",
       "user_credentials.password_hash",
+      "user_credentials.failed_login_attempts",
+      "user_credentials.locked_until",
     ])
     .executeTakeFirst();
 

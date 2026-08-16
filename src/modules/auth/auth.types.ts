@@ -6,11 +6,16 @@ export type UserWithCredentials = {
   email: string;
   status: UserStatus;
   password_hash: string;
+  failed_login_attempts: number;
+  locked_until: Date | null;
   created_at: Date;
   updated_at: Date;
 };
 
-export type PublicUser = Omit<UserWithCredentials, "password_hash">;
+export type PublicUser = Omit<
+  UserWithCredentials,
+  "password_hash" | "failed_login_attempts" | "locked_until"
+>;
 
 export type PublicUserWithToken = {
   user: PublicUser;

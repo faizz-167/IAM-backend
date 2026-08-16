@@ -4,4 +4,5 @@ export type Session = {
   expires_at: string;
   ip_address?: string | null;
   user_agent?: string | null;
+  family_id?: string;
 };

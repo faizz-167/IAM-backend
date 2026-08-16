@@ -13,6 +13,13 @@ const REFRESH_COOKIE_OPTIONS = {
   maxAge: env.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
 };
 
+const LOGOUT_COOKIE_OPTIONS = {
+  httpOnly: true,
+  secure: env.isProduction,
+  sameSite: env.isProduction ? ("strict" as const) : ("lax" as const),
+  path: "/api/v1/auth",
+};
+
 export const registerController = async (
   req: Request,
   res: Response,
@@ -105,12 +112,7 @@ export const logoutController = async (
       await authService.logoutSession(refreshToken);
     }
 
-    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
-      httpOnly: true,
-      secure: env.isProduction,
-      sameSite: env.isProduction ? ("strict" as const) : ("lax" as const),
-      path: "/api/v1/auth",
-    });
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, LOGOUT_COOKIE_OPTIONS);
 
     res.status(200).json(success(null, { message: "Logged out successfully" }));
   } catch (error) {
@@ -131,12 +133,7 @@ export const logoutAllController = async (
 
     await authService.logoutAllSessions(userId);
 
-    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, {
-      httpOnly: true,
-      secure: env.isProduction,
-      sameSite: env.isProduction ? ("strict" as const) : ("lax" as const),
-      path: "/api/v1/auth",
-    });
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, LOGOUT_COOKIE_OPTIONS);
 
     res
       .status(200)

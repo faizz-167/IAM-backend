@@ -56,6 +56,12 @@ export const loginUser = async (
     throw new UnauthenticatedError("Invalid email or password");
   }
 
+  if (user.locked_until && new Date(user.locked_until) > new Date()) {
+    throw new UnauthenticatedError(
+      "Account temporarily locked due to too many failed login attempts",
+    );
+  }
+
   const isValidPassword = await argon2.verify(
     user.password_hash,
     userInput.password,
@@ -132,9 +138,14 @@ export const refreshAccessToken = async (
     expires_at: expiresAt,
     ip_address: meta?.ip_address ?? null,
     user_agent: meta?.user_agent ?? null,
+    family_id: session.family_id,
   });
 
-  await markSessionReplaced(session.id, newSession.id);
+  const replaced = await markSessionReplaced(session.id, newSession.id);
+  if (!replaced) {
+    await revokeSession(newSession.id);
+    throw new UnauthenticatedError("Invalid refresh token");
+  }
 
   const accessToken = signInToken(session.user_id);
 
