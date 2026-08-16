@@ -160,3 +160,44 @@ export const getCurrentUserController = async (
     next(error);
   }
 };
+
+export const requestEmailController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      throw new UnauthorizedError("User ID not found in request");
+    }
+
+    await authService.requestEmail(userId);
+
+    res.status(200).json(success("Email verification requested successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyEmailController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.userId;
+    if (!userId) {
+      throw new UnauthorizedError("User ID not found in request");
+    }
+
+    const { otp } = req.body;
+    const result = await authService.verifyEmail(userId, otp);
+
+    res
+      .status(200)
+      .json(success(result, { message: "Email verified successfully" }));
+  } catch (error) {
+    next(error);
+  }
+};

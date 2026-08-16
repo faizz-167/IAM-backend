@@ -1,16 +1,23 @@
-import { ConflictError, UnauthenticatedError } from "../../errors/RequestError";
+import {
+  BadRequestError,
+  ConflictError,
+  InternalServerError,
+  UnauthenticatedError,
+} from "../../errors/RequestError";
 import {
   createUser,
   getUserByEmail,
   getUserById,
   isUserExists,
   recordSuccessfulLogin,
+  updateEmailVerificationStatus,
   updateLoginAttempt,
+  updateUserStatus,
 } from "./auth.repo";
 import { LoginUserInput, RegisterUserInput } from "./auth.schema";
 import argon2 from "argon2";
 import { LoginResult, PublicUser, RefreshResult } from "./auth.types";
-import { convertToPublicUser } from "./auth.utils";
+import { convertToPublicUser, generateOtp } from "./auth.utils";
 import { signInToken } from "../../lib/jwt";
 import { generateRefreshToken, hashToken } from "../../lib/token";
 import { env } from "../../config/env";
@@ -22,6 +29,11 @@ import {
   revokeSession,
   revokeSessionFamily,
 } from "../sessions/sessions.repo";
+import { sendVerificationEmail } from "../../common-services/mail.service";
+import { redisClient } from "../../lib/redis";
+import { logger } from "../../lib/logger";
+
+const emailVerifyKey = (userId: string) => `email_verify:${userId}`;
 
 export const registerUser = async (
   userInput: RegisterUserInput,
@@ -178,4 +190,56 @@ export const getCurrentUser = async (userId: string): Promise<PublicUser> => {
     throw new UnauthenticatedError("User is not active");
   }
   return convertToPublicUser(user);
+};
+
+export const requestEmail = async (userId: string): Promise<void> => {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new UnauthenticatedError("User not found");
+  }
+
+  if (user.status !== "PENDING") {
+    throw new UnauthenticatedError(
+      "User is unable to request email verification or has already verified their email",
+    );
+  }
+
+  const otp = generateOtp();
+  await redisClient.setex(
+    emailVerifyKey(userId),
+    env.emailVerificationTtlMinutes * 60,
+    otp,
+  );
+
+  try {
+    await sendVerificationEmail({
+      email: user.email,
+      displayName: user.display_name,
+      otp,
+    });
+  } catch (error) {
+    logger.error(error, "Failed to send verification email");
+    throw new InternalServerError("Failed to send verification email");
+  }
+};
+
+export const verifyEmail = async (
+  userId: string,
+  otp: string,
+): Promise<PublicUser> => {
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new UnauthenticatedError("User not found");
+  }
+
+  const storedOtp = await redisClient.get(emailVerifyKey(userId));
+  if (!storedOtp || storedOtp !== otp) {
+    throw new BadRequestError("OTP has expired or is invalid");
+  }
+
+  await redisClient.del(emailVerifyKey(userId));
+  await updateEmailVerificationStatus(userId);
+  await updateUserStatus(userId, "ACTIVE");
+
+  return await getCurrentUser(userId);
 };

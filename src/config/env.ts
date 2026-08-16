@@ -13,7 +13,7 @@ function checkRequiredEnvVars(key: string): string {
 }
 
 export const env = {
-  port: process.env.PORT ?? 6000,
+  port: Number(process.env.PORT) ?? 6000,
   isProduction: (process.env.NODE_ENV ?? "development") === "production",
   nodeEnv: process.env.NODE_ENV ?? "development",
   logLevel: process.env.LOG_LEVEL ?? "info",
@@ -29,4 +29,15 @@ export const env = {
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
+  smtp: {
+    host: checkRequiredEnvVars("SMTP_HOST"),
+    port: Number(checkRequiredEnvVars("SMTP_PORT")),
+    secure: process.env.SMTP_SECURE === "true",
+    user: checkRequiredEnvVars("SMTP_USER"),
+    pass: checkRequiredEnvVars("SMTP_PASS"),
+    from: checkRequiredEnvVars("SMTP_FROM"),
+  },
+  emailVerificationTtlMinutes: Number(
+    process.env.EMAIL_VERIFICATION_TTL_MINUTES ?? "15",
+  ),
 };

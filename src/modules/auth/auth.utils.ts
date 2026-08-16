@@ -1,3 +1,4 @@
+import { randomInt } from "node:crypto";
 import { PublicUser, UserWithCredentials } from "./auth.types";
 
 export function convertToPublicUser(user: UserWithCredentials): PublicUser {
@@ -9,4 +10,8 @@ export function convertToPublicUser(user: UserWithCredentials): PublicUser {
     created_at: user.created_at,
     updated_at: user.updated_at,
   };
+}
+
+export function generateOtp(): string {
+  return randomInt(100000, 1000000).toString();
 }

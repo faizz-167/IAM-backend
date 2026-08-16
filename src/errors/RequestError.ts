@@ -36,6 +36,14 @@ export class ValidationError extends RequestError {
     return formattedMessages.join(", ");
   }
 }
+
+export class BadRequestError extends RequestError {
+  constructor(message: string) {
+    super(400, message);
+    this.name = "BadRequestError";
+  }
+}
+
 export class NotFoundError extends RequestError {
   constructor(resourse: string) {
     super(404, `${resourse} not found`);

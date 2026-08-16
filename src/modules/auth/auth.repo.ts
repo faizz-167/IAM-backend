@@ -148,3 +148,24 @@ export const getUserById = async (
 
   return result ?? null;
 };
+
+export const updateEmailVerificationStatus = async (
+  userId: string,
+): Promise<void> => {
+  await db
+    .updateTable("user_emails")
+    .set({ is_verified: true })
+    .where("user_id", "=", userId)
+    .execute();
+};
+
+export const updateUserStatus = async (
+  userId: string,
+  status: "ACTIVE" | "LOCKED" | "SUSPENDED",
+) => {
+  await db
+    .updateTable("users")
+    .set({ status })
+    .where("id", "=", userId)
+    .execute();
+};
