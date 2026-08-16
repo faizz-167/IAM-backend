@@ -5,10 +5,6 @@ import {
   UnauthenticatedError,
 } from "../../errors/RequestError";
 import {
-  createUser,
-  getUserByEmail,
-  getUserById,
-  isUserExists,
   recordSuccessfulLogin,
   updateEmailVerificationStatus,
   updateLoginAttempt,
@@ -32,6 +28,12 @@ import {
 import { sendVerificationEmail } from "../../common-services/mail.service";
 import { redisClient } from "../../lib/redis";
 import { logger } from "../../lib/logger";
+import {
+  createUser,
+  getUserByEmail,
+  getUserById,
+  isUserExists,
+} from "../users/user.repo";
 
 const emailVerifyKey = (userId: string) => `email_verify:${userId}`;
 

@@ -1,16 +1,4 @@
-type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED" | "PENDING";
-
-export type UserWithCredentials = {
-  id: string;
-  display_name: string;
-  email: string;
-  status: UserStatus;
-  password_hash: string;
-  failed_login_attempts: number;
-  locked_until: Date | null;
-  created_at: Date;
-  updated_at: Date;
-};
+import { UserWithCredentials } from "../users/user.types";
 
 export type PublicUser = Omit<
   UserWithCredentials,

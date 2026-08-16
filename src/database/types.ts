@@ -75,10 +75,8 @@ type PermissionResource =
   | "ORGANIZATION"
   | "ROLE"
   | "MEMBERSHIP"
-  | "USER"
-  | "INVITATION"
-  | "SESSION"
-  | "AUDIT";
+  | "AUDIT"
+  | "PERMISSION";
 
 type PermissionAction = "CREATE" | "READ" | "UPDATE" | "DELETE";
 
