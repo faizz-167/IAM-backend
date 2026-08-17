@@ -40,3 +40,22 @@ export const isSystemRoleExists = async (name: string): Promise<boolean> => {
 
   return role ? true : false;
 };
+
+export const getSystemRoleByName = async (
+  name: string,
+): Promise<Role | undefined> => {
+  const role = await db
+    .selectFrom("roles")
+    .where("name", "=", name)
+    .where("is_system_role", "=", true)
+    .select([
+      "id",
+      "name",
+      "description",
+      "is_system_role",
+      "created_at",
+      "updated_at",
+    ])
+    .executeTakeFirst();
+  return role;
+};

@@ -9,3 +9,7 @@ export type Organization = {
   created_at: Date;
   updated_at: Date;
 };
+
+export type PublicOrganization = Organization & {
+  role_of_creator: string;
+};

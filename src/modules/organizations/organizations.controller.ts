@@ -25,13 +25,33 @@ export const updateOrganizationStatusController = async (
       req.params.id as string,
       req.body.status,
     );
-    res
-      .status(200)
-      .json(
-        success(organization, {
-          message: "Organization status updated successfully",
-        }),
-      );
+    res.status(200).json(
+      success(organization, {
+        message: "Organization status updated successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createOrganizationController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.userId as string;
+
+    const organization = await organizationsService.createOrganization(
+      req.body,
+      userId,
+    );
+    res.status(201).json(
+      success(organization, {
+        message: "Organization created successfully",
+      }),
+    );
   } catch (error) {
     next(error);
   }

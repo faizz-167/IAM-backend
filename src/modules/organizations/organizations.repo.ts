@@ -1,5 +1,10 @@
+import { DatabaseError } from "pg";
 import { db } from "../../database";
-import { OrganizationStatus } from "./organizations.types";
+import { CreateOrganizationInput } from "./organizations.schema";
+import { Organization, OrganizationStatus } from "./organizations.types";
+import { ConflictError, InternalServerError } from "../../errors/RequestError";
+import { PG_UNIQUE_VIOLATION } from "../../constants";
+import { sql } from "kysely";
 
 const ORG_COLUMNS = [
   "id",
@@ -44,4 +49,44 @@ export const updateOrganizationStatus = async (
     .executeTakeFirst();
 
   return organization ?? null;
+};
+
+export const createOrganization = async (
+  organization: CreateOrganizationInput,
+  userId: string,
+  roleId: string,
+): Promise<Organization> => {
+  try {
+    const newOrganization = await db.transaction().execute(async (trx) => {
+      const organizationRecord = await trx
+        .insertInto("organizations")
+        .values({
+          name: organization.name,
+          slug: sql`lower(${organization.slug})`,
+          created_by: userId,
+        })
+        .returning(ORG_COLUMNS)
+        .executeTakeFirstOrThrow();
+
+      await trx
+        .insertInto("memberships")
+        .values({
+          organization_id: organizationRecord.id,
+          user_id: userId,
+          role_id: roleId,
+        })
+        .executeTakeFirstOrThrow();
+
+      return organizationRecord;
+    });
+
+    return newOrganization;
+  } catch (error) {
+    if (error instanceof DatabaseError && error.code === PG_UNIQUE_VIOLATION) {
+      throw new ConflictError(
+        "Organization with the same name or slug already exists",
+      );
+    }
+    throw new InternalServerError("Failed to create organization");
+  }
 };

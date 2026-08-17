@@ -3,8 +3,7 @@ import { db } from "../../database";
 import { UserWithCredentials } from "./user.types";
 import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import { DatabaseError } from "pg";
-
-const PG_UNIQUE_VIOLATION = "23505";
+import { PG_UNIQUE_VIOLATION } from "../../constants";
 
 export const getUserById = async (
   userId: string,
