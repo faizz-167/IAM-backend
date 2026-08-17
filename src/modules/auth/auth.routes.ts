@@ -30,7 +30,7 @@ authRouter.post(
 
 authRouter.get("/me", authenticate, authController.getCurrentUserController);
 
-authRouter.get(
+authRouter.post(
   "/email-verify",
   authenticate,
   authController.requestEmailController,

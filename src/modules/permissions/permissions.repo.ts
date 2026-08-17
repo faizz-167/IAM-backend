@@ -1,6 +1,6 @@
 import { db } from "../../database";
 import { ConflictError } from "../../errors/RequestError";
-import { CreatePermissionInput } from "./permissions..schema";
+import { CreatePermissionInput } from "./permissions.schema";
 import { Permission } from "./permissions.types";
 
 export const createPermission = async (

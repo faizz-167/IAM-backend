@@ -34,8 +34,11 @@ import {
   getUserById,
   isUserExists,
 } from "../users/user.repo";
+import { MAX_OTP_ATTEMPTS } from "../../constants";
 
 const emailVerifyKey = (userId: string) => `email_verify:${userId}`;
+const emailVerifyAttemptsKey = (userId: string) =>
+  `email_verify_attempts:${userId}`;
 
 export const registerUser = async (
   userInput: RegisterUserInput,
@@ -212,6 +215,7 @@ export const requestEmail = async (userId: string): Promise<void> => {
     env.emailVerificationTtlMinutes * 60,
     otp,
   );
+  await redisClient.del(emailVerifyAttemptsKey(userId));
 
   try {
     await sendVerificationEmail({
@@ -234,12 +238,31 @@ export const verifyEmail = async (
     throw new UnauthenticatedError("User not found");
   }
 
+  if (user.status !== "PENDING") {
+    throw new BadRequestError(
+      "User is unable to verify email or has already verified their email",
+    );
+  }
+
+  const attemptsKey = emailVerifyAttemptsKey(userId);
+  const attempts = Number((await redisClient.get(attemptsKey)) ?? "0");
+  if (attempts >= MAX_OTP_ATTEMPTS) {
+    await redisClient.del(emailVerifyKey(userId));
+    await redisClient.del(attemptsKey);
+    throw new BadRequestError(
+      "Too many incorrect attempts, please request a new OTP",
+    );
+  }
+
   const storedOtp = await redisClient.get(emailVerifyKey(userId));
   if (!storedOtp || storedOtp !== otp) {
+    await redisClient.incr(attemptsKey);
+    await redisClient.expire(attemptsKey, env.emailVerificationTtlMinutes * 60);
     throw new BadRequestError("OTP has expired or is invalid");
   }
 
   await redisClient.del(emailVerifyKey(userId));
+  await redisClient.del(attemptsKey);
   await updateEmailVerificationStatus(userId);
   await updateUserStatus(userId, "ACTIVE");
 

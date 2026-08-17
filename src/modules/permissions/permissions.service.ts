@@ -1,8 +1,8 @@
-import { db } from "../../database";
 import { getUserById } from "../users/user.repo";
-import { CreatePermissionInput } from "./permissions..schema";
+import { CreatePermissionInput } from "./permissions.schema";
 import { Permission } from "./permissions.types";
 import * as permissionRepo from "./permissions.repo";
+import { NotFoundError } from "../../errors/RequestError";
 
 export const createPermission = async (
   permissionData: CreatePermissionInput,
@@ -10,7 +10,7 @@ export const createPermission = async (
 ): Promise<Permission> => {
   const user = await getUserById(userId);
   if (!user) {
-    throw new Error("User not found");
+    throw new NotFoundError("User");
   }
   const permission = await permissionRepo.createPermission(permissionData);
 

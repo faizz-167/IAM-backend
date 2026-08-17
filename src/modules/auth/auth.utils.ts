@@ -1,5 +1,6 @@
 import { randomInt } from "node:crypto";
-import { PublicUser, UserWithCredentials } from "./auth.types";
+import { PublicUser } from "./auth.types";
+import { UserWithCredentials } from "../users/user.types";
 
 export function convertToPublicUser(user: UserWithCredentials): PublicUser {
   return {
