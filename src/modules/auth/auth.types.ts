@@ -2,7 +2,7 @@ import { UserWithCredentials } from "../users/user.types";
 
 export type PublicUser = Omit<
   UserWithCredentials,
-  "password_hash" | "failed_login_attempts" | "locked_until"
+  "password_hash" | "failed_login_attempts" | "locked_until" | "is_super_admin"
 >;
 
 export type PublicUserWithToken = {

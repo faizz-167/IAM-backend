@@ -19,6 +19,7 @@ export const getUserById = async (
       "users.display_name",
       "user_emails.email",
       "users.status",
+      "users.is_super_admin",
       "users.created_at",
       "users.updated_at",
       "user_credentials.password_hash",
@@ -40,7 +41,14 @@ export const createUser = async (input: {
       const user = await trx
         .insertInto("users")
         .values({ display_name: input.display_name })
-        .returning(["id", "display_name", "status", "created_at", "updated_at"])
+        .returning([
+          "id",
+          "display_name",
+          "status",
+          "is_super_admin",
+          "created_at",
+          "updated_at",
+        ])
         .executeTakeFirstOrThrow();
 
       const email = await trx
@@ -67,6 +75,7 @@ export const createUser = async (input: {
         password_hash: password.password_hash,
         failed_login_attempts: 0,
         locked_until: null,
+        is_super_admin: user.is_super_admin,
         created_at: user.created_at,
         updated_at: user.updated_at,
       };
@@ -109,6 +118,7 @@ export const getUserByEmail = async (
       "users.display_name",
       "user_emails.email",
       "users.status",
+      "users.is_super_admin",
       "users.created_at",
       "users.updated_at",
       "user_credentials.password_hash",

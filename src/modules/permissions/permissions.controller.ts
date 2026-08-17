@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as permissionService from "./permissions.service";
 import { success } from "../../lib/response";
-import { UnauthorizedError } from "../../errors/RequestError";
 
 export const createPermissionController = async (
   req: Request,
@@ -9,14 +8,7 @@ export const createPermissionController = async (
   next: NextFunction,
 ) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      throw new UnauthorizedError("User ID not found in request");
-    }
-    const permission = await permissionService.createPermission(
-      req.body,
-      userId,
-    );
+    const permission = await permissionService.createPermission(req.body);
     res
       .status(201)
       .json(

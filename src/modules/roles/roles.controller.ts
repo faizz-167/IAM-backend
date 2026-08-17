@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { success } from "../../lib/response";
 import * as roleService from "./roles.service";
-import { UnauthorizedError } from "../../errors/RequestError";
 
 export const createSystemRolesController = async (
   req: Request,
@@ -9,11 +8,7 @@ export const createSystemRolesController = async (
   next: NextFunction,
 ) => {
   try {
-    const userId = req.userId;
-    if (!userId) {
-      throw new UnauthorizedError("User ID not found in request");
-    }
-    const systemRole = await roleService.createSystemRoles(req.body, userId);
+    const systemRole = await roleService.createSystemRoles(req.body);
 
     res
       .status(201)

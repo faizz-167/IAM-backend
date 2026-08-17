@@ -8,6 +8,7 @@ export type UserWithCredentials = {
   password_hash: string;
   failed_login_attempts: number;
   locked_until: Date | null;
+  is_super_admin: boolean;
   created_at: Date;
   updated_at: Date;
 };

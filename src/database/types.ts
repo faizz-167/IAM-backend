@@ -13,6 +13,7 @@ interface UsersTable {
   id: GeneratedAlways<string>; // uuid
   display_name: string;
   status: Generated<UserStatus>;
+  is_super_admin: Generated<boolean>;
   created_at: ColumnType<Date, string | undefined, never>;
   updated_at: ColumnType<Date, string | undefined, never>;
   deleted_at: ColumnType<Date | null, string | null | undefined, string | null>;
