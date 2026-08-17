@@ -1,9 +1,36 @@
 import { sql } from "kysely";
 import { db } from "../../database";
-import { UserWithCredentials } from "./user.types";
+import { UserAuthState, UserWithCredentials } from "./user.types";
 import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import { DatabaseError } from "pg";
 import { PG_UNIQUE_VIOLATION } from "../../constants";
+import { logger } from "../../lib/logger";
+
+const USER_WITH_CREDENTIALS_COLUMNS = [
+  "users.id",
+  "users.display_name",
+  "user_emails.email",
+  "users.status",
+  "users.is_super_admin",
+  "users.created_at",
+  "users.updated_at",
+  "user_credentials.password_hash",
+  "user_credentials.failed_login_attempts",
+  "user_credentials.locked_until",
+] as const;
+
+export const getUserAuthState = async (
+  userId: string,
+): Promise<UserAuthState | null> => {
+  const result = await db
+    .selectFrom("users")
+    .where("id", "=", userId)
+    .where("deleted_at", "is", null)
+    .select(["id", "status", "is_super_admin"])
+    .executeTakeFirst();
+
+  return result ?? null;
+};
 
 export const getUserById = async (
   userId: string,
@@ -13,18 +40,9 @@ export const getUserById = async (
     .innerJoin("user_emails", "users.id", "user_emails.user_id")
     .innerJoin("user_credentials", "users.id", "user_credentials.user_id")
     .where("users.id", "=", userId)
-    .select([
-      "users.id",
-      "users.display_name",
-      "user_emails.email",
-      "users.status",
-      "users.is_super_admin",
-      "users.created_at",
-      "users.updated_at",
-      "user_credentials.password_hash",
-      "user_credentials.failed_login_attempts",
-      "user_credentials.locked_until",
-    ])
+    .where("users.deleted_at", "is", null)
+    .where("user_emails.is_primary", "=", true)
+    .select(USER_WITH_CREDENTIALS_COLUMNS)
     .executeTakeFirst();
 
   return result ?? null;
@@ -85,6 +103,8 @@ export const createUser = async (input: {
         "A User with this email already exists, please login instead",
       );
     }
+
+    logger.error({ err: error }, "Failed to create user");
     throw new InternalServerError("Failed to create user");
   }
 };
@@ -93,9 +113,11 @@ export const isUserExists = async (email: string): Promise<boolean> => {
   const normalizedEmail = email.toLowerCase();
   const user = await db
     .selectFrom("user_emails")
-    .where(sql`lower(email)`, "=", normalizedEmail)
-    .where("is_primary", "=", true)
-    .select("user_id")
+    .innerJoin("users", "users.id", "user_emails.user_id")
+    .where(sql`lower(user_emails.email)`, "=", normalizedEmail)
+    .where("user_emails.is_primary", "=", true)
+    .where("users.deleted_at", "is", null)
+    .select("user_emails.user_id")
     .executeTakeFirst();
 
   return user ? true : false;
@@ -110,20 +132,10 @@ export const getUserByEmail = async (
     .selectFrom("user_emails")
     .innerJoin("users", "user_emails.user_id", "users.id")
     .innerJoin("user_credentials", "users.id", "user_credentials.user_id")
-    .where(sql`lower(email)`, "=", normalizedEmail)
-    .where("is_primary", "=", true)
-    .select([
-      "users.id",
-      "users.display_name",
-      "user_emails.email",
-      "users.status",
-      "users.is_super_admin",
-      "users.created_at",
-      "users.updated_at",
-      "user_credentials.password_hash",
-      "user_credentials.failed_login_attempts",
-      "user_credentials.locked_until",
-    ])
+    .where(sql`lower(user_emails.email)`, "=", normalizedEmail)
+    .where("user_emails.is_primary", "=", true)
+    .where("users.deleted_at", "is", null)
+    .select(USER_WITH_CREDENTIALS_COLUMNS)
     .executeTakeFirst();
 
   return result ?? null;

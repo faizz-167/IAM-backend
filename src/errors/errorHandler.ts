@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { logger } from "../lib/logger";
 import { RequestError } from "./RequestError";
-import { fail } from "../lib/response";
+import { fail, failWith, fieldErrorsToApiErrors } from "../lib/response";
 
 export function errorHandler(
   err: unknown,
@@ -10,6 +10,12 @@ export function errorHandler(
   _next: NextFunction,
 ) {
   if (err instanceof RequestError) {
+    if (err.errors) {
+      return res
+        .status(err.statusCode)
+        .json(failWith(fieldErrorsToApiErrors(err.errors)));
+    }
+
     return res.status(err.statusCode).json(fail(err.message));
   }
 

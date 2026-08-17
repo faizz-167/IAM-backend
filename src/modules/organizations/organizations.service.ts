@@ -62,3 +62,12 @@ export const createOrganization = async (
     user.display_name,
   );
 };
+
+export const listCurrentUSerOrganization = async (
+  userId: string,
+): Promise<PublicOrganization[]> => {
+  const organizations =
+    await organizationsRepo.getOrganizationsByUserId(userId);
+
+  return organizations;
+};

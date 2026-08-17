@@ -8,7 +8,7 @@ import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
 export const permissionsRouter = Router();
 
 permissionsRouter.post(
-  "/create",
+  "/",
   authenticate,
   requireSuperAdmin,
   validateBody(createPermissionSchema),

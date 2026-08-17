@@ -20,3 +20,19 @@ export const createMemberShip = async (
 
   return newMemberShip;
 };
+
+export const getMembershipsByUserId = async (userId: string) => {
+  return await db
+    .selectFrom("memberships")
+    .where("user_id", "=", userId)
+    .select([
+      "id",
+      "user_id",
+      "organization_id",
+      "role_id",
+      "status",
+      "created_at",
+      "updated_at",
+    ])
+    .execute();
+};

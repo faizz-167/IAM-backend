@@ -11,5 +11,6 @@ export type Organization = {
 };
 
 export type PublicOrganization = Organization & {
-  role_of_creator: string;
+  created_by_name: string | null;
+  role_name: string;
 };

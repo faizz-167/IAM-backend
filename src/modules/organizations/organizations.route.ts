@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { z } from "zod";
 import { validateBody } from "../../lib/validateBody";
 import { validateParams } from "../../lib/validateParams";
 import {
   createOrganizationSchema,
+  organizationIdParamSchema,
   updateOrganizationStatusSchema,
 } from "./organizations.schema";
 import * as organizationsController from "./organizations.controller";
@@ -15,13 +15,18 @@ export const organizationsRouter = Router();
 organizationsRouter.use(authenticate);
 
 organizationsRouter.post(
-  "/create",
+  "/",
   validateBody(createOrganizationSchema),
   organizationsController.createOrganizationController,
 );
 
 organizationsRouter.get(
   "/",
+  organizationsController.getMyOrganizationsController,
+);
+
+organizationsRouter.get(
+  "/admin",
   requireSuperAdmin,
   organizationsController.listOrganizationsController,
 );
@@ -29,6 +34,7 @@ organizationsRouter.get(
 organizationsRouter.patch(
   "/:id/status",
   requireSuperAdmin,
+  validateParams(organizationIdParamSchema),
   validateBody(updateOrganizationStatusSchema),
   organizationsController.updateOrganizationStatusController,
 );

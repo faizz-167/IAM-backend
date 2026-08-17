@@ -56,3 +56,18 @@ export const createOrganizationController = async (
     next(error);
   }
 };
+
+export const getMyOrganizationsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const userId = req.userId as string;
+    const organizations =
+      await organizationsService.listCurrentUSerOrganization(userId);
+    res.status(200).json(success(organizations));
+  } catch (error) {
+    next(error);
+  }
+};

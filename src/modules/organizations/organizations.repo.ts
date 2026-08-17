@@ -1,7 +1,11 @@
 import { DatabaseError } from "pg";
 import { db } from "../../database";
 import { CreateOrganizationInput } from "./organizations.schema";
-import { Organization, OrganizationStatus } from "./organizations.types";
+import {
+  Organization,
+  OrganizationStatus,
+  PublicOrganization,
+} from "./organizations.types";
 import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import { PG_UNIQUE_VIOLATION } from "../../constants";
 import { sql } from "kysely";
@@ -89,4 +93,36 @@ export const createOrganization = async (
     }
     throw new InternalServerError("Failed to create organization");
   }
+};
+
+export const getOrganizationsByUserId = async (
+  userId: string,
+): Promise<PublicOrganization[]> => {
+  const organizations = await db
+    .selectFrom("memberships")
+    .innerJoin(
+      "organizations",
+      "organizations.id",
+      "memberships.organization_id",
+    )
+    .innerJoin("roles", "roles.id", "memberships.role_id")
+    .leftJoin("users", "users.id", "organizations.created_by")
+    .where("memberships.user_id", "=", userId)
+    .where("memberships.status", "=", "ACTIVE")
+    .where("organizations.deleted_at", "is", null)
+    .select([
+      "organizations.id",
+      "organizations.name",
+      "organizations.slug",
+      "organizations.status",
+      "organizations.created_by",
+      "organizations.created_at",
+      "organizations.updated_at",
+      "users.display_name as created_by_name",
+      "roles.name as role_name",
+    ])
+    .orderBy("organizations.created_at", "asc")
+    .execute();
+
+  return organizations;
 };

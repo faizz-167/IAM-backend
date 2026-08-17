@@ -1,12 +1,9 @@
 import { sql } from "kysely";
-import { DatabaseError } from "pg";
 import { db } from "../../database";
-import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import {
   ACCOUNT_LOCKOUT_MINUTES,
   MAX_FAILED_LOGIN_ATTEMPTS,
 } from "../../constants";
-import { UserWithCredentials } from "../users/user.types";
 
 export const recordSuccessfulLogin = async (userId: string): Promise<void> => {
   await db
@@ -40,6 +37,7 @@ export const updateEmailVerificationStatus = async (
     .updateTable("user_emails")
     .set({ is_verified: true })
     .where("user_id", "=", userId)
+    .where("is_primary", "=", true)
     .execute();
 };
 

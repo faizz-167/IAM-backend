@@ -63,6 +63,14 @@ export const registerUser = async (
   return convertToPublicUser(newUser);
 };
 
+let dummyPasswordHash: Promise<string> | null = null;
+const getDummyPasswordHash = (): Promise<string> => {
+  dummyPasswordHash ??= argon2.hash(generateRefreshToken(), {
+    type: argon2.argon2id,
+  });
+  return dummyPasswordHash;
+};
+
 export const loginUser = async (
   userInput: LoginUserInput,
   meta?: { ip_address?: string; user_agent?: string },
@@ -70,6 +78,9 @@ export const loginUser = async (
   const user = await getUserByEmail(userInput.email);
 
   if (!user) {
+    await argon2
+      .verify(await getDummyPasswordHash(), userInput.password)
+      .catch(() => false);
     throw new UnauthenticatedError("Invalid email or password");
   }
 
@@ -86,6 +97,10 @@ export const loginUser = async (
   if (!isValidPassword) {
     await updateLoginAttempt(user.id);
     throw new UnauthenticatedError("Invalid email or password");
+  }
+
+  if (user.status !== "ACTIVE" && user.status !== "PENDING") {
+    throw new UnauthenticatedError("User account is not active");
   }
 
   const accessToken = signInToken(user.id);

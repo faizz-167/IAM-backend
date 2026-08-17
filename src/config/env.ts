@@ -12,32 +12,60 @@ function checkRequiredEnvVars(key: string): string {
   return value;
 }
 
+/**
+ * Express `trust proxy` value. Left off by default: enabling it blindly lets a
+ * client spoof `X-Forwarded-For` and defeat IP rate limiting.
+ */
+function trustProxyEnv(): boolean | number | string {
+  const raw = process.env.TRUST_PROXY;
+  if (raw === undefined || raw.trim() === "") {
+    return false;
+  }
+
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+
+  const hops = Number(raw);
+  return Number.isInteger(hops) ? hops : raw;
+}
+
+function numberEnv(key: string, fallback: number): number {
+  const raw = process.env[key];
+  if (raw === undefined || raw.trim() === "") {
+    return fallback;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`Environment variable ${key} must be a number, got "${raw}"`);
+  }
+
+  return parsed;
+}
+
 export const env = {
-  port: Number(process.env.PORT) ?? 6000,
+  port: numberEnv("PORT", 6000),
   isProduction: (process.env.NODE_ENV ?? "development") === "production",
   nodeEnv: process.env.NODE_ENV ?? "development",
   logLevel: process.env.LOG_LEVEL ?? "info",
   jwtSecret: checkRequiredEnvVars("JWT_SECRET"),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "15m",
   databaseUrl: checkRequiredEnvVars("DATABASE_URL"),
   logQueries: process.env.LOG_QUERIES ?? "false",
   redisUrl: checkRequiredEnvVars("REDIS_URL"),
-  refreshTokenExpiresInDays: Number(
-    process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS ?? "7",
-  ),
+  refreshTokenExpiresInDays: numberEnv("REFRESH_TOKEN_EXPIRES_IN_DAYS", 7),
+  trustProxy: trustProxyEnv(),
   corsOrigins: (process.env.CORS_ORIGINS ?? "http://localhost:5173")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),
   smtp: {
     host: checkRequiredEnvVars("SMTP_HOST"),
-    port: Number(checkRequiredEnvVars("SMTP_PORT")),
+    port: numberEnv("SMTP_PORT", 587),
     secure: process.env.SMTP_SECURE === "true",
     user: checkRequiredEnvVars("SMTP_USER"),
     pass: checkRequiredEnvVars("SMTP_PASS"),
     from: checkRequiredEnvVars("SMTP_FROM"),
   },
-  emailVerificationTtlMinutes: Number(
-    process.env.EMAIL_VERIFICATION_TTL_MINUTES ?? "15",
-  ),
+  emailVerificationTtlMinutes: numberEnv("EMAIL_VERIFICATION_TTL_MINUTES", 15),
 };

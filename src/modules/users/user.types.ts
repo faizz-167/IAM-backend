@@ -1,4 +1,4 @@
-type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED" | "PENDING";
+export type UserStatus = "ACTIVE" | "SUSPENDED" | "LOCKED" | "PENDING";
 
 export type UserWithCredentials = {
   id: string;
@@ -11,4 +11,10 @@ export type UserWithCredentials = {
   is_super_admin: boolean;
   created_at: Date;
   updated_at: Date;
+};
+
+export type UserAuthState = {
+  id: string;
+  status: UserStatus;
+  is_super_admin: boolean;
 };

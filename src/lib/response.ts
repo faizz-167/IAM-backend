@@ -1,8 +1,14 @@
+export type ApiError = {
+  message: string;
+  code?: string;
+  field?: string;
+};
+
 export type ApiEnvelope<T> = {
   status: "success" | "error";
   data: T | null;
   meta?: Record<string, unknown>;
-  errors?: Array<{ message: string; code?: string }>;
+  errors?: ApiError[];
 };
 
 export function success<T>(
@@ -15,10 +21,23 @@ export function success<T>(
     meta,
   };
 }
+
 export function fail(message: string, code?: string): ApiEnvelope<null> {
+  return failWith([{ message, code }]);
+}
+
+export function failWith(errors: ApiError[]): ApiEnvelope<null> {
   return {
     status: "error",
     data: null,
-    errors: [{ message, code }],
+    errors,
   };
+}
+
+export function fieldErrorsToApiErrors(
+  fieldErrors: Record<string, string[]>,
+): ApiError[] {
+  return Object.entries(fieldErrors).flatMap(([field, messages]) =>
+    messages.map((message) => ({ message, field })),
+  );
 }
