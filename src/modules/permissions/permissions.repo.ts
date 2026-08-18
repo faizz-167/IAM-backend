@@ -45,3 +45,15 @@ export const getAllPermissions = async (): Promise<Permission[]> => {
 
   return permissions;
 };
+
+export const getPermissionByName = async (
+  name: string,
+): Promise<Permission | null> => {
+  const permission = await db
+    .selectFrom("permissions")
+    .select(["id", "name", "description", "resource", "action", "created_at"])
+    .where("name", "=", name)
+    .executeTakeFirst();
+
+  return permission ?? null;
+};

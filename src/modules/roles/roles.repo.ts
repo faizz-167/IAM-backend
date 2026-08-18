@@ -59,3 +59,25 @@ export const getSystemRoleByName = async (
     .executeTakeFirst();
   return role;
 };
+
+export const assignPermissionToRole = async (
+  roleId: string,
+  permissionId: string,
+) => {
+  await db
+    .insertInto("role_permissions")
+    .values({
+      role_id: roleId,
+      permission_id: permissionId,
+    })
+    .execute();
+};
+
+export const getPermissionsByRoleId = async (roleId: string) => {
+  const permissions = await db
+    .selectFrom("role_permissions")
+    .where("role_id", "=", roleId)
+    .select(["role_id", "permission_id"])
+    .execute();
+  return permissions;
+};

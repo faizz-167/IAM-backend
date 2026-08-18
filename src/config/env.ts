@@ -12,10 +12,6 @@ function checkRequiredEnvVars(key: string): string {
   return value;
 }
 
-/**
- * Express `trust proxy` value. Left off by default: enabling it blindly lets a
- * client spoof `X-Forwarded-For` and defeat IP rate limiting.
- */
 function trustProxyEnv(): boolean | number | string {
   const raw = process.env.TRUST_PROXY;
   if (raw === undefined || raw.trim() === "") {

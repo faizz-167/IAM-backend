@@ -3,15 +3,30 @@ import { authenticate } from "../../middlewares/auth.middleware";
 import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
 import * as roleController from "./roles.controller";
 import { validateBody } from "../../lib/validateBody";
-import { systemRoleSchema } from "./roles.schema";
+import {
+  assignPermissionSchema,
+  roleIdParamSchema,
+  systemRoleSchema,
+} from "./roles.schema";
+import { validateParams } from "../../lib/validateParams";
 
 export const rolesRouter = Router();
 export const systemRolesRouter = Router();
 
+rolesRouter.use(authenticate);
+systemRolesRouter.use(authenticate);
+
 systemRolesRouter.post(
   "/",
-  authenticate,
   requireSuperAdmin,
   validateBody(systemRoleSchema),
   roleController.createSystemRolesController,
+);
+
+rolesRouter.post(
+  "/:roleId/permissions",
+  requireSuperAdmin,
+  validateParams(roleIdParamSchema),
+  validateBody(assignPermissionSchema),
+  roleController.assignPermissionToSystemRoles,
 );

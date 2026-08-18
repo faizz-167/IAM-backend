@@ -19,3 +19,17 @@ export const createSystemRolesController = async (
     next(error);
   }
 };
+
+export const assignPermissionToSystemRoles = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const roleId = req.params.roleId as string;
+    await roleService.assignPermission(req.body, roleId);
+    res.status(200).json(success("Permission assigned successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
