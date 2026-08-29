@@ -1,3 +1,4 @@
+import { PermissionName } from "../permissions/permission.catalogue";
 import { UserWithCredentials } from "../users/user.types";
 
 export type PublicUser = Omit<
@@ -19,4 +20,21 @@ export type LoginResult = {
 export type RefreshResult = {
   accessToken: string;
   refreshToken: string;
+};
+
+/**
+ * Everything a request needs to authorize an action inside one organization.
+ *
+ * Deliberately carries no super-admin flag: super admins are a platform-level
+ * role (monitoring organizations, defining system roles and permissions) and
+ * hold no implicit power inside an organization. Inside org scope they are an
+ * ordinary member and are bound by the role their membership points at.
+ */
+export type AuthContext = {
+  userId: string;
+  orgId: string;
+  membershipId: string;
+  roleId: string;
+  roleName: string;
+  permissions: Set<PermissionName>;
 };

@@ -23,7 +23,7 @@ systemRolesRouter.post(
   roleController.createSystemRolesController,
 );
 
-rolesRouter.post(
+systemRolesRouter.post(
   "/:roleId/permissions",
   requireSuperAdmin,
   validateParams(roleIdParamSchema),

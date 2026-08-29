@@ -9,6 +9,10 @@ import {
 import * as organizationsController from "./organizations.controller";
 import { authenticate } from "../../middlewares/auth.middleware";
 import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
+import { setOrgId } from "../../middlewares/organization.middleware";
+import { getAuthContext } from "../../middlewares/getAuthContext";
+import { requirePermission } from "../../middlewares/requirePermission";
+import { PERMISSIONS } from "../permissions/permission.catalogue";
 
 export const organizationsRouter = Router();
 
@@ -32,9 +36,18 @@ organizationsRouter.get(
 );
 
 organizationsRouter.patch(
-  "/:id/status",
+  "/:orgId/status",
   requireSuperAdmin,
   validateParams(organizationIdParamSchema),
   validateBody(updateOrganizationStatusSchema),
   organizationsController.updateOrganizationStatusController,
+);
+
+organizationsRouter.get(
+  "/:orgId",
+  validateParams(organizationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ORGANIZATION_READ),
+  organizationsController.getOrganizationController,
 );

@@ -81,3 +81,13 @@ export const getPermissionsByRoleId = async (roleId: string) => {
     .execute();
   return permissions;
 };
+
+export const getRoleScopeById = async (roleId: string) => {
+  const role = await db
+    .selectFrom("roles")
+    .where("id", "=", roleId)
+    .select(["id", "is_system_role", "organization_id"])
+    .executeTakeFirst();
+
+  return role ?? null;
+};

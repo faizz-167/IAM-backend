@@ -18,7 +18,7 @@ export const updateOrganizationStatusSchema = z.object({
 });
 
 export const organizationIdParamSchema = z.object({
-  id: z.uuid("Organization id must be a valid UUID"),
+  orgId: z.uuid("Organization id must be a valid UUID"),
 });
 
 export type UpdateOrganizationStatusInput = z.infer<

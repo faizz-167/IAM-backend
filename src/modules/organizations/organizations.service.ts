@@ -71,3 +71,16 @@ export const listCurrentUSerOrganization = async (
 
   return organizations;
 };
+
+export const getOrganization = async (
+  organizationId: string,
+): Promise<Organization> => {
+  const organization =
+    await organizationsRepo.getOrganizationById(organizationId);
+
+  if (!organization) {
+    throw new NotFoundError("Organization");
+  }
+
+  return organization;
+};

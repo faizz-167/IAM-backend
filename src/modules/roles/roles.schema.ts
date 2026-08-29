@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  ALL_PERMISSION_NAMES,
+  PermissionName,
+} from "../permissions/permission.catalogue";
 
 export const systemRoleSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -6,7 +10,9 @@ export const systemRoleSchema = z.object({
 });
 
 export const assignPermissionSchema = z.object({
-  permission_name: z.string().min(1, "Permission name is required"),
+  permission_name: z.enum(
+    ALL_PERMISSION_NAMES as [PermissionName, ...PermissionName[]],
+  ),
 });
 
 export const roleIdParamSchema = z.object({

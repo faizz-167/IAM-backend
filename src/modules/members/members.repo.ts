@@ -1,5 +1,9 @@
 import { db } from "../../database";
-import { CreateMemberShipInput, MemberShip } from "./members.types";
+import {
+  CreateMemberShipInput,
+  MembershipContext,
+  MemberShip,
+} from "./members.types";
 
 export const createMemberShip = async (
   data: CreateMemberShipInput,
@@ -35,4 +39,31 @@ export const getMembershipsByUserId = async (userId: string) => {
       "updated_at",
     ])
     .execute();
+};
+
+export const getMembershipContext = async (
+  userId: string,
+  organizationId: string,
+): Promise<MembershipContext | null> => {
+  const context = await db
+    .selectFrom("memberships")
+    .innerJoin(
+      "organizations",
+      "organizations.id",
+      "memberships.organization_id",
+    )
+    .innerJoin("roles", "roles.id", "memberships.role_id")
+    .where("memberships.user_id", "=", userId)
+    .where("memberships.organization_id", "=", organizationId)
+    .where("organizations.deleted_at", "is", null)
+    .select([
+      "memberships.id as membership_id",
+      "memberships.status as membership_status",
+      "organizations.status as organization_status",
+      "roles.id as role_id",
+      "roles.name as role_name",
+    ])
+    .executeTakeFirst();
+
+  return context ?? null;
 };

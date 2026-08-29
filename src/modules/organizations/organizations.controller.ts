@@ -22,7 +22,7 @@ export const updateOrganizationStatusController = async (
 ) => {
   try {
     const organization = await organizationsService.updateOrganizationStatus(
-      req.params.id as string,
+      req.params.orgId as string,
       req.body.status,
     );
     res.status(200).json(
@@ -67,6 +67,20 @@ export const getMyOrganizationsController = async (
     const organizations =
       await organizationsService.listCurrentUSerOrganization(userId);
     res.status(200).json(success(organizations));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getOrganizationController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const organization = await organizationsService.getOrganization(orgId);
+    res.status(200).json(success(organization));
   } catch (error) {
     next(error);
   }

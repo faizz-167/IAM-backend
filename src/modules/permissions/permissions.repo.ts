@@ -1,10 +1,10 @@
 import { db } from "../../database";
 import { ConflictError } from "../../errors/RequestError";
-import { CreatePermissionInput } from "./permissions.schema";
+import { CreatePermissionRecord } from "./permissions.schema";
 import { Permission } from "./permissions.types";
 
 export const createPermission = async (
-  permissionData: CreatePermissionInput,
+  permissionData: CreatePermissionRecord,
 ): Promise<Permission> => {
   if (await isPermissionExists(permissionData.name)) {
     throw new ConflictError("Permission already exists");
@@ -56,4 +56,17 @@ export const getPermissionByName = async (
     .executeTakeFirst();
 
   return permission ?? null;
+};
+
+export const getPermissionNamesByRoleId = async (
+  roleId: string,
+): Promise<string[]> => {
+  const rows = await db
+    .selectFrom("role_permissions")
+    .innerJoin("permissions", "permissions.id", "role_permissions.permission_id")
+    .where("role_permissions.role_id", "=", roleId)
+    .select("permissions.name")
+    .execute();
+
+  return rows.map((row) => row.name);
 };
