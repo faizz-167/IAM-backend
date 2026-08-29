@@ -72,12 +72,17 @@ interface RolesTable {
   updated_at: ColumnType<Date, string | undefined, never>;
 }
 
-type PermissionResource =
+type PermissionResource = "ORGANIZATION" | "ROLE" | "MEMBERSHIP" | "AUDIT";
+
+/** Wider than `PermissionResource`: audit rows cover things nobody grants on. */
+type AuditResource =
   | "ORGANIZATION"
   | "ROLE"
   | "MEMBERSHIP"
-  | "AUDIT"
-  | "PERMISSION";
+  | "USER"
+  | "INVITATION"
+  | "SESSION"
+  | "AUDIT";
 
 type PermissionAction = "CREATE" | "READ" | "UPDATE" | "DELETE";
 
@@ -152,7 +157,7 @@ interface AuditLogsTable {
   organization_id: string | null;
   actor_user_id: string | null;
   action: string;
-  resource: PermissionResource;
+  resource: AuditResource;
   target_id: string | null;
   metadata: Generated<Record<string, unknown>>;
   ip_address: string | null;

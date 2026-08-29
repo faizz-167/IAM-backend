@@ -5,13 +5,7 @@ import { isPermissionName, permissionName } from "./permissions.utils";
 export const createPermissionSchema = z
   .object({
     description: z.string().min(1, "Description is required"),
-    resource: z.enum([
-      "ORGANIZATION",
-      "ROLE",
-      "MEMBERSHIP",
-      "AUDIT",
-      "PERMISSION",
-    ]),
+    resource: z.enum(["ORGANIZATION", "ROLE", "MEMBERSHIP", "AUDIT"]),
     action: z.enum(["CREATE", "READ", "UPDATE", "DELETE"]),
   })
   // The catalogue is a subset of every resource x action pair, so reject the

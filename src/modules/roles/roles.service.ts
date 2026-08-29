@@ -37,10 +37,12 @@ export const assignPermission = async (
     throw new NotFoundError("Permission not found");
   }
 
-  const permissions = await roleRepo.getPermissionsByRoleId(roleId);
-  if (permissions.find((p) => p.permission_id === permission.id)) {
+  if (await roleRepo.roleHasPermission(roleId, permission.id)) {
     throw new ConflictError("Permission already assigned to role");
   }
 
-  await roleRepo.assignPermissionToRole(roleId, permission.id);
+  const assigned = await roleRepo.assignPermissionToRole(roleId, permission.id);
+  if (!assigned) {
+    throw new ConflictError("Permission already assigned to role");
+  }
 };

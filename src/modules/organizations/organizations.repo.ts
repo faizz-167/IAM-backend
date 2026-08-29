@@ -9,6 +9,7 @@ import {
 import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import { PG_UNIQUE_VIOLATION } from "../../constants";
 import { sql } from "kysely";
+import { logger } from "../../lib/logger";
 
 const ORG_COLUMNS = [
   "id",
@@ -91,6 +92,8 @@ export const createOrganization = async (
         "Organization with the same name or slug already exists",
       );
     }
+
+    logger.error({ err: error }, "Failed to create organization");
     throw new InternalServerError("Failed to create organization");
   }
 };

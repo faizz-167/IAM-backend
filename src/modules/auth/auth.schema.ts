@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MIN_PASSWORD_LENGTH } from "../../constants";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH } from "../../constants";
 
 export const registerSchema = z.object({
   display_name: z
@@ -14,12 +14,18 @@ export const registerSchema = z.object({
   email: z.email("Invalid email address"),
   password: z
     .string()
-    .min(MIN_PASSWORD_LENGTH, "Password must be at least 8 characters long"),
+    .min(MIN_PASSWORD_LENGTH, "Password must be at least 8 characters long")
+    // Hashing is deliberately slow, so an unbounded password is a cheap way to
+    // burn CPU. argon2 gains nothing past this length anyway.
+    .max(
+      MAX_PASSWORD_LENGTH,
+      `Password must be at most ${MAX_PASSWORD_LENGTH} characters long`,
+    ),
 });
 
 export const loginSchema = z.object({
   email: z.email("Invalid email address"),
-  password: z.string().min(1, "Password is required"),
+  password: z.string().min(1, "Password is required").max(MAX_PASSWORD_LENGTH),
 });
 
 export const emailVerifySchema = z.object({

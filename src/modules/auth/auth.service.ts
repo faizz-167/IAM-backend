@@ -20,11 +20,12 @@ import { env } from "../../config/env";
 import {
   createSession,
   findSessionByTokenHash,
-  markSessionReplaced,
   revokeAllUserSessions,
   revokeSession,
   revokeSessionFamily,
+  rotateSession,
 } from "../sessions/sessions.repo";
+import { denyAccessForSessions } from "../../lib/accessTokenDenylist";
 import { sendVerificationEmail } from "../../common-services/mail.service";
 import { redisClient } from "../../lib/redis";
 import { logger } from "../../lib/logger";
@@ -103,7 +104,6 @@ export const loginUser = async (
     throw new UnauthenticatedError("User account is not active");
   }
 
-  const accessToken = signInToken(user.id);
   const refreshToken = generateRefreshToken();
   const refreshTokenHash = hashToken(refreshToken);
 
@@ -111,13 +111,17 @@ export const loginUser = async (
     Date.now() + env.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  await createSession({
+  // The session has to exist before the access token is signed: the token
+  // carries its id so revoking the session can invalidate the token.
+  const session = await createSession({
     user_id: user.id,
     refresh_token_hash: refreshTokenHash,
     expires_at: expiresAt,
     ip_address: meta?.ip_address ?? null,
     user_agent: meta?.user_agent ?? null,
   });
+
+  const accessToken = signInToken(user.id, session.id);
 
   await recordSuccessfulLogin(user.id);
 
@@ -140,20 +144,20 @@ export const refreshAccessToken = async (
   }
 
   if (session.revoked_at !== null) {
-    await revokeSessionFamily(session.family_id);
+    await denyAccessForSessions(await revokeSessionFamily(session.family_id));
     throw new UnauthenticatedError(
       "Refresh token reuse detected — all sessions in this family have been revoked",
     );
   }
 
   if (new Date(session.expires_at) < new Date()) {
-    await revokeSession(session.id);
+    await denyAccessForSessions(await revokeSession(session.id));
     throw new UnauthenticatedError("Refresh token has expired");
   }
 
   const user = await getUserById(session.user_id);
   if (!user || (user.status !== "ACTIVE" && user.status !== "PENDING")) {
-    await revokeSessionFamily(session.family_id);
+    await denyAccessForSessions(await revokeSessionFamily(session.family_id));
     throw new UnauthenticatedError("User account is not active");
   }
 
@@ -164,7 +168,9 @@ export const refreshAccessToken = async (
     Date.now() + env.refreshTokenExpiresInDays * 24 * 60 * 60 * 1000,
   ).toISOString();
 
-  const newSession = await createSession({
+  // Insert-then-revoke in one transaction; throws if another refresh already
+  // consumed this token.
+  const newSession = await rotateSession(session.id, {
     user_id: session.user_id,
     refresh_token_hash: newTokenHash,
     expires_at: expiresAt,
@@ -173,13 +179,7 @@ export const refreshAccessToken = async (
     family_id: session.family_id,
   });
 
-  const replaced = await markSessionReplaced(session.id, newSession.id);
-  if (!replaced) {
-    await revokeSession(newSession.id);
-    throw new UnauthenticatedError("Invalid refresh token");
-  }
-
-  const accessToken = signInToken(session.user_id);
+  const accessToken = signInToken(session.user_id, newSession.id);
 
   return {
     accessToken,
@@ -192,12 +192,12 @@ export const logoutSession = async (refreshToken: string): Promise<void> => {
   const session = await findSessionByTokenHash(tokenHash);
 
   if (session && session.revoked_at === null) {
-    await revokeSession(session.id);
+    await denyAccessForSessions(await revokeSession(session.id));
   }
 };
 
 export const logoutAllSessions = async (userId: string): Promise<void> => {
-  await revokeAllUserSessions(userId);
+  await denyAccessForSessions(await revokeAllUserSessions(userId));
 };
 
 export const getCurrentUser = async (userId: string): Promise<PublicUser> => {

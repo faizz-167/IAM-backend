@@ -28,7 +28,6 @@ export const db = new Kysely<Database>({
   },
 });
 
-process.on("SIGTERM", async () => {
+export async function disconnectDatabase(): Promise<void> {
   await db.destroy();
-  process.exit(0);
-});
+}

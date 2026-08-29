@@ -4,6 +4,7 @@ import { UnauthorizedError } from "../errors/RequestError";
 
 interface JwtPayload {
   userId: string;
+  sessionId: string;
   type: "access";
 }
 
@@ -12,9 +13,15 @@ const OPTIONS: jwt.SignOptions = {
   algorithm: "HS256",
 };
 
-export function signInToken(userId: string): string {
+/**
+ * The session id travels in the token so `authenticate` can check it against
+ * the revocation denylist. Without it a logout could not reach tokens that were
+ * already handed out.
+ */
+export function signInToken(userId: string, sessionId: string): string {
   const payload: JwtPayload = {
     userId,
+    sessionId,
     type: "access",
   };
   return jwt.sign(payload, env.jwtSecret, OPTIONS);
@@ -34,6 +41,7 @@ export function verifyToken(token: string): JwtPayload {
     typeof decoded !== "object" ||
     decoded === null ||
     typeof decoded.userId !== "string" ||
+    typeof decoded.sessionId !== "string" ||
     decoded.type !== "access"
   ) {
     throw new UnauthorizedError("Invalid or expired token");
@@ -41,6 +49,7 @@ export function verifyToken(token: string): JwtPayload {
 
   return {
     userId: decoded.userId,
+    sessionId: decoded.sessionId,
     type: decoded.type,
   };
 }

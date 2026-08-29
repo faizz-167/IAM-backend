@@ -2,7 +2,6 @@ export type PermissionResource =
   | "ORGANIZATION"
   | "ROLE"
   | "MEMBERSHIP"
-  | "PERMISSION"
   | "AUDIT";
 export type PermissionAction = "CREATE" | "READ" | "UPDATE" | "DELETE";
 

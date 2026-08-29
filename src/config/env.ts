@@ -25,6 +25,27 @@ function trustProxyEnv(): boolean | number | string {
   return Number.isInteger(hops) ? hops : raw;
 }
 
+/**
+ * Turns a `jsonwebtoken` expiry string ("15m", "1h", "900") into seconds.
+ *
+ * The access-token denylist needs the lifetime as a number so a revoked
+ * session's Redis entry can expire exactly when the token it blocks does.
+ */
+function durationSeconds(raw: string, key: string): number {
+  const match = /^(\d+)\s*([smhd])?$/.exec(raw.trim());
+  if (!match) {
+    throw new Error(
+      `Environment variable ${key} must be a duration like "15m", got "${raw}"`,
+    );
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2] ?? "s";
+  const multiplier = { s: 1, m: 60, h: 3600, d: 86400 }[unit] ?? 1;
+
+  return amount * multiplier;
+}
+
 function numberEnv(key: string, fallback: number): number {
   const raw = process.env[key];
   if (raw === undefined || raw.trim() === "") {
@@ -39,13 +60,17 @@ function numberEnv(key: string, fallback: number): number {
   return parsed;
 }
 
+const jwtExpiresIn = process.env.JWT_EXPIRES_IN ?? "15m";
+
 export const env = {
-  port: numberEnv("PORT", 6000),
+  // Not 6000: browsers block it as an unsafe port (ERR_UNSAFE_PORT).
+  port: numberEnv("PORT", 3000),
   isProduction: (process.env.NODE_ENV ?? "development") === "production",
   nodeEnv: process.env.NODE_ENV ?? "development",
   logLevel: process.env.LOG_LEVEL ?? "info",
   jwtSecret: checkRequiredEnvVars("JWT_SECRET"),
-  jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "15m",
+  jwtExpiresIn,
+  jwtExpiresInSeconds: durationSeconds(jwtExpiresIn, "JWT_EXPIRES_IN"),
   databaseUrl: checkRequiredEnvVars("DATABASE_URL"),
   logQueries: process.env.LOG_QUERIES ?? "false",
   redisUrl: checkRequiredEnvVars("REDIS_URL"),
@@ -64,4 +89,5 @@ export const env = {
     from: checkRequiredEnvVars("SMTP_FROM"),
   },
   emailVerificationTtlMinutes: numberEnv("EMAIL_VERIFICATION_TTL_MINUTES", 15),
+  shutdownTimeoutMs: numberEnv("SHUTDOWN_TIMEOUT_MS", 10_000),
 };

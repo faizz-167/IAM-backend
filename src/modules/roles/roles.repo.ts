@@ -22,6 +22,7 @@ export const createSystemRole = async (
       "name",
       "description",
       "is_system_role",
+      "organization_id",
       "created_at",
       "updated_at",
     ])
@@ -53,6 +54,7 @@ export const getSystemRoleByName = async (
       "name",
       "description",
       "is_system_role",
+      "organization_id",
       "created_at",
       "updated_at",
     ])
@@ -60,26 +62,40 @@ export const getSystemRoleByName = async (
   return role;
 };
 
+/**
+ * Returns false when the pair was already there. The service checks first for a
+ * clean 409, but two concurrent assignments would both pass that check, so the
+ * insert has to tolerate the loser rather than surface a raw 23505 as a 500.
+ */
 export const assignPermissionToRole = async (
   roleId: string,
   permissionId: string,
-) => {
-  await db
+): Promise<boolean> => {
+  const inserted = await db
     .insertInto("role_permissions")
     .values({
       role_id: roleId,
       permission_id: permissionId,
     })
-    .execute();
+    .onConflict((oc) => oc.columns(["role_id", "permission_id"]).doNothing())
+    .returning("id")
+    .executeTakeFirst();
+
+  return inserted !== undefined;
 };
 
-export const getPermissionsByRoleId = async (roleId: string) => {
-  const permissions = await db
+export const roleHasPermission = async (
+  roleId: string,
+  permissionId: string,
+): Promise<boolean> => {
+  const row = await db
     .selectFrom("role_permissions")
     .where("role_id", "=", roleId)
-    .select(["role_id", "permission_id"])
-    .execute();
-  return permissions;
+    .where("permission_id", "=", permissionId)
+    .select("id")
+    .executeTakeFirst();
+
+  return row !== undefined;
 };
 
 export const getRoleScopeById = async (roleId: string) => {

@@ -37,15 +37,17 @@ authRouter.post(
 
 authRouter.get("/me", authenticate, authController.getCurrentUserController);
 
+// Named so the two steps cannot be mistaken for each other: the old pair
+// (/email-verify vs /verify-email) differed by a single transposition.
 authRouter.post(
-  "/email-verify",
+  "/email/verification-request",
   otpLimiter,
   authenticate,
   authController.requestEmailController,
 );
 
 authRouter.post(
-  "/verify-email",
+  "/email/verify",
   otpLimiter,
   authenticate,
   validateBody(emailVerifySchema),
