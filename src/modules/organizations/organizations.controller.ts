@@ -85,3 +85,42 @@ export const getOrganizationController = async (
     next(error);
   }
 };
+
+export const updateOrganizationController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const organization = await organizationsService.updateOrganization(
+      orgId,
+      req.body,
+    );
+    res.status(200).json(
+      success(organization, {
+        message: "Organization updated successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteOrganizationController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    await organizationsService.deleteOrganization(orgId);
+    res.status(200).json(
+      success(null, {
+        message: "Organization deleted successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};

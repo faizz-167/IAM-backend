@@ -11,20 +11,20 @@ The ordering is by dependency, not by importance — each phase unblocks the nex
 
 ## Legend
 
-| Guard | Meaning |
-| --- | --- |
-| — | Public |
-| `auth` | `authenticate` — valid access token, active account |
-| `super` | `authenticate` + `requireSuperAdmin` |
+| Guard      | Meaning                                                   |
+| ---------- | --------------------------------------------------------- |
+| —          | Public                                                    |
+| `auth`     | `authenticate` — valid access token, active account       |
+| `super`    | `authenticate` + `requireSuperAdmin`                      |
 | `ctx:PERM` | `setOrgId` → `getAuthContext` → `requirePermission(PERM)` |
 
 Org-scoped routes always compose in that order:
 
 ```ts
-validateParams(organizationIdParamSchema)  // the id is a real UUID
-setOrgId                                   // pin it on the request
-getAuthContext                             // membership + role + permissions
-requirePermission(PERMISSIONS.ROLE_READ)   // the one permission this needs
+validateParams(organizationIdParamSchema); // the id is a real UUID
+setOrgId; // pin it on the request
+getAuthContext; // membership + role + permissions
+requirePermission(PERMISSIONS.ROLE_READ); // the one permission this needs
 ```
 
 ---
@@ -32,9 +32,11 @@ requirePermission(PERMISSIONS.ROLE_READ)   // the one permission this needs
 ## Done
 
 ### Health
+
 - [x] `GET /health` — —
 
 ### Auth — `src/modules/auth/auth.routes.ts`
+
 - [x] `POST /auth/register` — — · registerLimiter
 - [x] `POST /auth/login` — — · authLimiter
 - [x] `POST /auth/refresh` — — · authLimiter, rotates the session
@@ -45,6 +47,7 @@ requirePermission(PERMISSIONS.ROLE_READ)   // the one permission this needs
 - [x] `POST /auth/email/verify` — `auth` · otpLimiter
 
 ### Organizations — `src/modules/organizations/organizations.route.ts`
+
 - [x] `POST /organizations` — `auth` · creator becomes OWNER
 - [x] `GET /organizations` — `auth` · caller's own memberships
 - [x] `GET /organizations/admin` — `super` · every organization
@@ -52,10 +55,12 @@ requirePermission(PERMISSIONS.ROLE_READ)   // the one permission this needs
 - [x] `GET /organizations/:orgId` — `ctx:ORGANIZATION:READ`
 
 ### System roles — `src/modules/roles/roles.routes.ts`
+
 - [x] `POST /system-roles` — `super`
 - [x] `POST /system-roles/:roleId/permissions` — `super`
 
 ### Permissions — `src/modules/permissions/permissions.routes.ts`
+
 - [x] `POST /permissions` — `super`
 - [x] `GET /permissions` — `auth`
 
@@ -73,9 +78,9 @@ super-admin route is unreachable. Build this first, in this order.
       run on every deploy.
 - [ ] **Promote-super-admin script** (`npm run grant:super -- <email>`) —
       replaces the manual `UPDATE users SET is_super_admin` in the README.
-- [ ] `GET /system-roles` — `super` · list, needed to verify the seed landed
-- [ ] `GET /system-roles/:roleId/permissions` — `super`
-- [ ] `DELETE /system-roles/:roleId/permissions/:permissionName` — `super` ·
+- [x] `GET /system-roles` — `super` · list, needed to verify the seed landed
+- [x] `GET /system-roles/:roleId/permissions` — `super`
+- [x] `DELETE /system-roles/:roleId/permissions/:permissionName` — `super` ·
       the assign route has no inverse today
 
 Decide here and write it down: **`OWNER` is the role `createOrganization` looks
@@ -88,8 +93,8 @@ up by name.** If the seed does not create it, org creation 500s.
 Small, self-contained, and closes the CRUD gap on a resource that already has
 its permissions defined.
 
-- [ ] `PATCH /organizations/:orgId` — `ctx:ORGANIZATION:UPDATE` · name, slug
-- [ ] `DELETE /organizations/:orgId` — `ctx:ORGANIZATION:DELETE` · soft delete
+- [x] `PATCH /organizations/:orgId` — `ctx:ORGANIZATION:UPDATE` · name, slug
+- [x] `DELETE /organizations/:orgId` — `ctx:ORGANIZATION:DELETE` · soft delete
       (`deleted_at`), and revoke every membership's sessions
 
 ---
@@ -162,6 +167,7 @@ only way a second person joins an organization, so it is the phase that makes
 the product multi-user.
 
 ### Org-side (managing invitations)
+
 - [ ] `POST /organizations/:orgId/invitations` — `ctx:MEMBERSHIP:CREATE` ·
       emails a token, stores only `token_hash`
 - [ ] `GET /organizations/:orgId/invitations` — `ctx:MEMBERSHIP:READ`
@@ -171,6 +177,7 @@ the product multi-user.
       status `REVOKED`
 
 ### Invitee-side (`/invitations`, no org context — the invitee is not a member yet)
+
 - [ ] `GET /invitations/:token` — — · preview: org name and role only. Leak
       nothing else; the token is the only credential.
 - [ ] `POST /invitations/:token/accept` — `auth` · creates the membership
@@ -200,6 +207,7 @@ Everything here is per-user and independent of organizations, so it can slot in
 earlier if you want it sooner.
 
 ### Sessions — `/sessions`
+
 - [ ] `GET /sessions` — `auth` · the caller's active sessions, current one
       flagged via `req.sessionId`
 - [ ] `DELETE /sessions/:sessionId` — `auth` · revoke one, ownership-checked
@@ -208,12 +216,14 @@ earlier if you want it sooner.
 on login or drop the column.
 
 ### Account — `/users`
+
 - [ ] `PATCH /users/me` — `auth` · display name
 - [ ] `POST /users/me/password` — `auth` · requires current password; revoke all
       other sessions on success
 - [ ] `DELETE /users/me` — `auth` · soft delete, revoke everything
 
 ### Password reset — `/auth`
+
 - [ ] `POST /auth/password/forgot` — — · otpLimiter. Always return 200, whether
       or not the email exists, or this becomes an account-enumeration oracle.
 - [ ] `POST /auth/password/reset` — — · token + new password; revoke all sessions
@@ -270,7 +280,7 @@ after it.
 
 **Non-members get 403, never 404.** `loadAuthContext` already does this so the
 API cannot be used to probe which organization ids exist. Sub-resources must
-match: a role or member belonging to another org is a 404 *after* the org-level
+match: a role or member belonging to another org is a 404 _after_ the org-level
 403, never a distinguishable error before it.
 
 **Every mutation gets an audit row** once Phase 6 lands. Add the call in the

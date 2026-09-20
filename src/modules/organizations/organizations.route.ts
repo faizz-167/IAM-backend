@@ -51,3 +51,22 @@ organizationsRouter.get(
   requirePermission(PERMISSIONS.ORGANIZATION_READ),
   organizationsController.getOrganizationController,
 );
+
+organizationsRouter.patch(
+  "/:orgId",
+  validateParams(organizationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ORGANIZATION_UPDATE),
+  validateBody(createOrganizationSchema),
+  organizationsController.updateOrganizationController,
+);
+
+organizationsRouter.delete(
+  "/:orgId",
+  validateParams(organizationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ORGANIZATION_DELETE),
+  organizationsController.deleteOrganizationController,
+);

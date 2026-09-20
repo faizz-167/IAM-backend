@@ -6,7 +6,10 @@ import {
 import { getSystemRoleByName } from "../roles/roles.repo";
 import { getUserById } from "../users/user.repo";
 import * as organizationsRepo from "./organizations.repo";
-import { CreateOrganizationInput } from "./organizations.schema";
+import {
+  CreateOrganizationInput,
+  UpdateOrganizationInput,
+} from "./organizations.schema";
 import { Organization, PublicOrganization } from "./organizations.types";
 import { convertToPublicOrganization } from "./organizations.utils";
 
@@ -28,6 +31,22 @@ export const updateOrganizationStatus = async (
   }
 
   return organization;
+};
+
+export const updateOrganization = async (
+  organizationId: string,
+  organization: UpdateOrganizationInput,
+): Promise<Organization> => {
+  const updatedOrganization = await organizationsRepo.updateOrganization(
+    organizationId,
+    organization,
+  );
+
+  if (!updatedOrganization) {
+    throw new NotFoundError("Organization");
+  }
+
+  return updatedOrganization;
 };
 
 export const createOrganization = async (
@@ -83,4 +102,15 @@ export const getOrganization = async (
   }
 
   return organization;
+};
+
+export const deleteOrganization = async (
+  organizationId: string,
+): Promise<void> => {
+  const deletedOrganization =
+    await organizationsRepo.deleteOrganization(organizationId);
+
+  if (!deletedOrganization) {
+    throw new NotFoundError("Organization");
+  }
 };

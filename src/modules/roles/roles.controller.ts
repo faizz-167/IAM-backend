@@ -66,3 +66,17 @@ export const getSystemRolesController = async (
     next(error);
   }
 };
+
+export const getPermissionsForSystemRole = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const roleId = req.params.roleId as string;
+    const permissions = await roleService.getPermissionsForSystemRole(roleId);
+    res.status(200).json(success(permissions));
+  } catch (error) {
+    next(error);
+  }
+};

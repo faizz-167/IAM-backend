@@ -45,3 +45,10 @@ systemRolesRouter.delete(
   validateParams(permissionNameParamSchema),
   roleController.revokePermissionFromSystemRoles,
 );
+
+systemRolesRouter.get(
+  "/:roleId/permissions",
+  authenticate,
+  validateParams(roleIdParamSchema),
+  roleController.getPermissionsForSystemRole,
+);

@@ -56,6 +56,25 @@ export const updateOrganizationStatus = async (
   return organization ?? null;
 };
 
+export const updateOrganization = async (
+  organizationId: string,
+  organization: CreateOrganizationInput,
+) => {
+  const updatedOrganization = await db
+    .updateTable("organizations")
+    .set({
+      name: organization.name,
+      slug: sql`lower(${organization.slug})`,
+    })
+    .where("id", "=", organizationId)
+    .where("deleted_at", "is", null)
+    .where("status", "!=", "SUSPENDED")
+    .returning(ORG_COLUMNS)
+    .executeTakeFirst();
+
+  return updatedOrganization ?? null;
+};
+
 export const createOrganization = async (
   organization: CreateOrganizationInput,
   userId: string,
@@ -128,4 +147,16 @@ export const getOrganizationsByUserId = async (
     .execute();
 
   return organizations;
+};
+
+export const deleteOrganization = async (organizationId: string) => {
+  const deletedOrganization = await db
+    .updateTable("organizations")
+    .set({ deleted_at: new Date().toISOString() })
+    .where("id", "=", organizationId)
+    .where("deleted_at", "is", null)
+    .returning(ORG_COLUMNS)
+    .executeTakeFirst();
+
+  return deletedOrganization ?? null;
 };

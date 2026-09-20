@@ -25,5 +25,6 @@ export type UpdateOrganizationStatusInput = z.infer<
   typeof updateOrganizationStatusSchema
 >;
 
+export type UpdateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type OrganizationIdParam = z.infer<typeof organizationIdParamSchema>;

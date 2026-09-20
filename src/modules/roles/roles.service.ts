@@ -66,3 +66,21 @@ export const getSystemRoles = async (): Promise<Role[]> => {
   const systemRoles = await roleRepo.getAllSystemRoles();
   return systemRoles;
 };
+
+export const getPermissionsForSystemRole = async (
+  roleId: string,
+): Promise<string[]> => {
+  const role = await roleRepo.getRoleScopeById(roleId);
+  if (!role) {
+    throw new NotFoundError("Role");
+  }
+
+  if (!role.is_system_role) {
+    throw new ForbiddenError(
+      "Only system roles permissions can be fetched here",
+    );
+  }
+
+  const permissions = await permissionRepo.getPermissionNamesByRoleId(roleId);
+  return permissions;
+};
