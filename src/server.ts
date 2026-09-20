@@ -20,13 +20,6 @@ async function main() {
   });
 }
 
-/**
- * Stops accepting connections, lets in-flight requests finish, then releases
- * the Redis and Postgres pools.
- *
- * A hard timeout backs this up: a hung keep-alive connection must not keep the
- * process alive past the orchestrator's own kill deadline.
- */
 async function shutdown(signal: string): Promise<void> {
   if (shuttingDown) {
     return;

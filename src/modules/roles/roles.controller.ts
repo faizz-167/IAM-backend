@@ -33,3 +33,36 @@ export const assignPermissionToSystemRoles = async (
     next(error);
   }
 };
+
+export const revokePermissionFromSystemRoles = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const roleId = req.params.roleId as string;
+    const permissionName = req.params.permissionName as string;
+
+    await roleService.revokePermission(roleId, permissionName);
+    res.status(200).json(success("Permission revoked successfully"));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSystemRolesController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const systemRoles = await roleService.getSystemRoles();
+    res
+      .status(200)
+      .json(
+        success(systemRoles, { message: "System roles fetched successfully" }),
+      );
+  } catch (error) {
+    next(error);
+  }
+};

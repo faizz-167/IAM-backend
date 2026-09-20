@@ -24,8 +24,6 @@ export const assignPermission = async (
     throw new NotFoundError("Role");
   }
 
-  // Super admins define the system catalogue only. Permissions on an
-  // organization's own roles are managed inside that organization.
   if (!role.is_system_role || role.organization_id !== null) {
     throw new ForbiddenError("Only system roles can be modified here");
   }
@@ -45,4 +43,26 @@ export const assignPermission = async (
   if (!assigned) {
     throw new ConflictError("Permission already assigned to role");
   }
+};
+
+export const revokePermission = async (
+  roleId: string,
+  permissionName: string,
+): Promise<void> => {
+  const role = await roleRepo.getRoleScopeById(roleId);
+  if (!role) {
+    throw new NotFoundError("Role");
+  }
+
+  const permission = await permissionRepo.getPermissionByName(permissionName);
+  if (!permission) {
+    throw new NotFoundError("Permission not found");
+  }
+
+  await roleRepo.revokePermissionFromRole(roleId, permission.id);
+};
+
+export const getSystemRoles = async (): Promise<Role[]> => {
+  const systemRoles = await roleRepo.getAllSystemRoles();
+  return systemRoles;
 };

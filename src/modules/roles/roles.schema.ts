@@ -19,5 +19,13 @@ export const roleIdParamSchema = z.object({
   roleId: z.uuid("Role id must be a valid UUID"),
 });
 
+export const permissionNameParamSchema = z.object({
+  permissionName: z.enum(
+    ALL_PERMISSION_NAMES as [PermissionName, ...PermissionName[]],
+  ),
+});
+
 export type SystemRoleInput = z.infer<typeof systemRoleSchema>;
 export type AssignPermissionInput = z.infer<typeof assignPermissionSchema>;
+export type RoleIdParam = z.infer<typeof roleIdParamSchema>;
+export type PermissionNameParam = z.infer<typeof permissionNameParamSchema>;

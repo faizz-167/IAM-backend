@@ -5,6 +5,7 @@ import * as roleController from "./roles.controller";
 import { validateBody } from "../../lib/validateBody";
 import {
   assignPermissionSchema,
+  permissionNameParamSchema,
   roleIdParamSchema,
   systemRoleSchema,
 } from "./roles.schema";
@@ -23,10 +24,24 @@ systemRolesRouter.post(
   roleController.createSystemRolesController,
 );
 
+systemRolesRouter.get(
+  "/",
+  requireSuperAdmin,
+  roleController.getSystemRolesController,
+);
+
 systemRolesRouter.post(
   "/:roleId/permissions",
   requireSuperAdmin,
   validateParams(roleIdParamSchema),
   validateBody(assignPermissionSchema),
   roleController.assignPermissionToSystemRoles,
+);
+
+systemRolesRouter.delete(
+  "/:roleId/permissions/:permissionName",
+  requireSuperAdmin,
+  validateParams(roleIdParamSchema),
+  validateParams(permissionNameParamSchema),
+  roleController.revokePermissionFromSystemRoles,
 );

@@ -3,6 +3,16 @@ import { ConflictError } from "../../errors/RequestError";
 import { SystemRoleInput } from "./roles.schema";
 import { Role } from "./roles.types";
 
+const ROLES_COLUMNS = [
+  "id",
+  "name",
+  "description",
+  "is_system_role",
+  "organization_id",
+  "created_at",
+  "updated_at",
+] as const;
+
 export const createSystemRole = async (
   roleData: SystemRoleInput,
 ): Promise<Role> => {
@@ -17,15 +27,7 @@ export const createSystemRole = async (
       description: roleData.description,
       is_system_role: true,
     })
-    .returning([
-      "id",
-      "name",
-      "description",
-      "is_system_role",
-      "organization_id",
-      "created_at",
-      "updated_at",
-    ])
+    .returning(ROLES_COLUMNS)
     .executeTakeFirstOrThrow();
 
   return newRole;
@@ -49,24 +51,11 @@ export const getSystemRoleByName = async (
     .selectFrom("roles")
     .where("name", "=", name)
     .where("is_system_role", "=", true)
-    .select([
-      "id",
-      "name",
-      "description",
-      "is_system_role",
-      "organization_id",
-      "created_at",
-      "updated_at",
-    ])
+    .select(ROLES_COLUMNS)
     .executeTakeFirst();
   return role;
 };
 
-/**
- * Returns false when the pair was already there. The service checks first for a
- * clean 409, but two concurrent assignments would both pass that check, so the
- * insert has to tolerate the loser rather than surface a raw 23505 as a 500.
- */
 export const assignPermissionToRole = async (
   roleId: string,
   permissionId: string,
@@ -82,6 +71,17 @@ export const assignPermissionToRole = async (
     .executeTakeFirst();
 
   return inserted !== undefined;
+};
+
+export const revokePermissionFromRole = async (
+  roleId: string,
+  permissionId: string,
+): Promise<void> => {
+  await db
+    .deleteFrom("role_permissions")
+    .where("role_id", "=", roleId)
+    .where("permission_id", "=", permissionId)
+    .execute();
 };
 
 export const roleHasPermission = async (
@@ -106,4 +106,14 @@ export const getRoleScopeById = async (roleId: string) => {
     .executeTakeFirst();
 
   return role ?? null;
+};
+
+export const getAllSystemRoles = async (): Promise<Role[]> => {
+  const systemRoles = await db
+    .selectFrom("roles")
+    .where("is_system_role", "=", true)
+    .select(ROLES_COLUMNS)
+    .execute();
+
+  return systemRoles;
 };
