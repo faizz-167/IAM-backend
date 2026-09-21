@@ -26,3 +26,9 @@ export type PermissionName = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
 export const ALL_PERMISSION_NAMES = Object.values(
   PERMISSIONS,
 ) as PermissionName[];
+
+export const DEFAULT_ORGANIZATION_ROLE_PERMISSIONS = [
+  PERMISSIONS.ORGANIZATION_READ,
+  PERMISSIONS.MEMBERSHIP_READ,
+  PERMISSIONS.ROLE_READ,
+] as const satisfies readonly PermissionName[];

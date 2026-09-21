@@ -1,7 +1,10 @@
 import { db } from "../../database";
-import { ConflictError } from "../../errors/RequestError";
+import { ConflictError, NotFoundError } from "../../errors/RequestError";
 import { SystemRoleInput } from "./roles.schema";
 import { Role } from "./roles.types";
+import { Role as OrganizationRole } from "../organizations/organizations.types";
+import { DatabaseError } from "pg";
+import { PG_UNIQUE_VIOLATION } from "../../constants";
 
 const ROLES_COLUMNS = [
   "id",
@@ -116,4 +119,118 @@ export const getAllSystemRoles = async (): Promise<Role[]> => {
     .execute();
 
   return systemRoles;
+};
+
+export const createRole = async (
+  organizationId: string,
+  roleName: string,
+  roleDescription: string | null,
+  permissions: string[] = [],
+): Promise<OrganizationRole> => {
+  try {
+    return await db.transaction().execute(async (trx) => {
+      const role = await trx
+        .insertInto("roles")
+        .values({
+          name: roleName,
+          description: roleDescription,
+          is_system_role: false,
+          organization_id: organizationId,
+        })
+        .returning(ROLES_COLUMNS)
+        .executeTakeFirstOrThrow();
+
+      if (permissions.length === 0) {
+        return { ...role, organization_id: organizationId, permissions: [] };
+      }
+
+      const permissionRows = await trx
+        .selectFrom("permissions")
+        .where("name", "in", permissions)
+        .select(["id", "name"])
+        .execute();
+
+      const missing = permissions.filter(
+        (name) =>
+          !permissionRows.some((permission) => permission.name === name),
+      );
+
+      if (missing.length > 0) {
+        throw new NotFoundError(`Permission ${missing.join(", ")}`);
+      }
+
+      await trx
+        .insertInto("role_permissions")
+        .values(
+          permissionRows.map((permission) => ({
+            role_id: role.id,
+            permission_id: permission.id,
+          })),
+        )
+        .execute();
+
+      return {
+        ...role,
+        organization_id: organizationId,
+        permissions: permissionRows.map((permission) => permission.name),
+      };
+    });
+  } catch (error) {
+    if (error instanceof DatabaseError && error.code === PG_UNIQUE_VIOLATION) {
+      throw new ConflictError(
+        "Role with the same name already exists in this organization",
+      );
+    }
+
+    throw error;
+  }
+};
+
+export const getRolesByOrganizationId = async (
+  organizationId: string,
+): Promise<OrganizationRole[]> => {
+  const roles = await db
+    .selectFrom("roles as r")
+    .leftJoin("role_permissions as rp", "r.id", "rp.role_id")
+    .leftJoin("permissions as p", "rp.permission_id", "p.id")
+    .where((eb) =>
+      eb.or([
+        eb("r.organization_id", "=", organizationId),
+        eb("r.is_system_role", "=", true),
+      ]),
+    )
+    .select([
+      "r.id",
+      "r.name",
+      "r.description",
+      "r.is_system_role",
+      "r.organization_id",
+      "r.created_at",
+      "r.updated_at",
+      "p.name as permission_name",
+    ])
+    .execute();
+
+  const roleMap: Record<string, OrganizationRole> = {};
+
+  for (const row of roles) {
+    if (!roleMap[row.id]) {
+      roleMap[row.id] = {
+        id: row.id,
+        name: row.name,
+        description: row.description,
+        organization_id: row.organization_id,
+        is_system_role: row.is_system_role,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        permissions: [],
+      };
+    }
+
+    if (row.permission_name) {
+      roleMap[row.id].permissions.push(row.permission_name);
+    }
+  }
+
+  return Object.values(roleMap);
 };

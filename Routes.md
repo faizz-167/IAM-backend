@@ -107,8 +107,8 @@ until an organization can define roles of its own.
 Mount at `/organizations/:orgId/roles` with `Router({ mergeParams: true })`, so
 `setOrgId` still sees `req.params.orgId`.
 
-- [ ] `POST /organizations/:orgId/roles` — `ctx:ROLE:CREATE`
-- [ ] `GET /organizations/:orgId/roles` — `ctx:ROLE:READ` · must return system
+- [x] `POST /organizations/:orgId/roles` — `ctx:ROLE:CREATE`
+- [x] `GET /organizations/:orgId/roles` — `ctx:ROLE:READ` · must return system
       roles alongside the org's own, since memberships can point at either
 - [ ] `GET /organizations/:orgId/roles/:roleId` — `ctx:ROLE:READ`
 - [ ] `PATCH /organizations/:orgId/roles/:roleId` — `ctx:ROLE:UPDATE`

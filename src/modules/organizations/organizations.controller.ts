@@ -124,3 +124,35 @@ export const deleteOrganizationController = async (
     next(error);
   }
 };
+
+export const createRoleController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const newRole = await organizationsService.createRole(orgId, req.body);
+    res.status(201).json(
+      success(newRole, {
+        message: "Role created successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listRolesController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const roles = await organizationsService.listRoles(orgId);
+    res.status(200).json(success(roles));
+  } catch (error) {
+    next(error);
+  }
+};

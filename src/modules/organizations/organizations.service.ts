@@ -6,12 +6,15 @@ import {
 import { getSystemRoleByName } from "../roles/roles.repo";
 import { getUserById } from "../users/user.repo";
 import * as organizationsRepo from "./organizations.repo";
+import * as rolesRepo from "../roles/roles.repo";
 import {
   CreateOrganizationInput,
+  CreateRoleInput,
   UpdateOrganizationInput,
 } from "./organizations.schema";
-import { Organization, PublicOrganization } from "./organizations.types";
+import { Organization, PublicOrganization, Role } from "./organizations.types";
 import { convertToPublicOrganization } from "./organizations.utils";
+import { DEFAULT_ORGANIZATION_ROLE_PERMISSIONS } from "../permissions/permission.catalogue";
 
 export const listOrganizations = async (): Promise<Organization[]> => {
   return await organizationsRepo.getAllOrganizations();
@@ -113,4 +116,31 @@ export const deleteOrganization = async (
   if (!deletedOrganization) {
     throw new NotFoundError("Organization");
   }
+};
+
+export const createRole = async (
+  organizationId: string,
+  createRoleInput: CreateRoleInput,
+): Promise<Role> => {
+  const permissions = Array.from(
+    new Set<string>([
+      ...DEFAULT_ORGANIZATION_ROLE_PERMISSIONS,
+      ...createRoleInput.permissions,
+    ]),
+  );
+
+  const newRole = await rolesRepo.createRole(
+    organizationId,
+    createRoleInput.role_name,
+    createRoleInput.role_description ?? null,
+    permissions,
+  );
+
+  return newRole;
+};
+
+export const listRoles = async (organizationId: string): Promise<Role[]> => {
+  const roles = await rolesRepo.getRolesByOrganizationId(organizationId);
+
+  return roles;
 };

@@ -14,3 +14,14 @@ export type PublicOrganization = Organization & {
   created_by_name: string | null;
   role_name: string;
 };
+
+export type Role = {
+  id: string;
+  organization_id: string | null;
+  name: string;
+  description: string | null;
+  is_system_role: boolean;
+  permissions: string[];
+  created_at: Date;
+  updated_at: Date;
+};

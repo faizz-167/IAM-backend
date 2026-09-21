@@ -3,6 +3,7 @@ import { validateBody } from "../../lib/validateBody";
 import { validateParams } from "../../lib/validateParams";
 import {
   createOrganizationSchema,
+  createRoleSchema,
   organizationIdParamSchema,
   updateOrganizationStatusSchema,
 } from "./organizations.schema";
@@ -14,7 +15,7 @@ import { getAuthContext } from "../../middlewares/getAuthContext";
 import { requirePermission } from "../../middlewares/requirePermission";
 import { PERMISSIONS } from "../permissions/permission.catalogue";
 
-export const organizationsRouter = Router();
+export const organizationsRouter = Router({ mergeParams: true });
 
 organizationsRouter.use(authenticate);
 
@@ -69,4 +70,23 @@ organizationsRouter.delete(
   getAuthContext,
   requirePermission(PERMISSIONS.ORGANIZATION_DELETE),
   organizationsController.deleteOrganizationController,
+);
+
+organizationsRouter.post(
+  "/:orgId/roles",
+  validateParams(organizationIdParamSchema),
+  validateBody(createRoleSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ROLE_CREATE),
+  organizationsController.createRoleController,
+);
+
+organizationsRouter.get(
+  "/:orgId/roles",
+  validateParams(organizationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ROLE_READ),
+  organizationsController.listRolesController,
 );
