@@ -156,3 +156,41 @@ export const listRolesController = async (
     next(error);
   }
 };
+
+export const listRoleByIdController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const roleId = req.params.roleId as string;
+    const role = await organizationsService.getRoleById(orgId, roleId);
+    res.status(200).json(success(role));
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateRoleController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const roleId = req.params.roleId as string;
+    const updatedRole = await organizationsService.updateRole(
+      orgId,
+      roleId,
+      req.body,
+    );
+    res.status(200).json(
+      success(updatedRole, {
+        message: "Role updated successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};

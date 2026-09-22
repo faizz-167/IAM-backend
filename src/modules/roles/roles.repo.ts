@@ -234,3 +234,83 @@ export const getRolesByOrganizationId = async (
 
   return Object.values(roleMap);
 };
+
+export const getRoleById = async (
+  organizationId: string,
+  roleId: string,
+): Promise<OrganizationRole | null> => {
+  const roles = await db
+    .selectFrom("roles as r")
+    .leftJoin("role_permissions as rp", "r.id", "rp.role_id")
+    .leftJoin("permissions as p", "rp.permission_id", "p.id")
+    .where((eb) =>
+      eb.or([
+        eb("r.organization_id", "=", organizationId),
+        eb("r.is_system_role", "=", true),
+      ]),
+    )
+    .where("r.id", "=", roleId)
+    .select([
+      "r.id",
+      "r.name",
+      "r.description",
+      "r.is_system_role",
+      "r.organization_id",
+      "r.created_at",
+      "r.updated_at",
+      "p.name as permission_name",
+    ])
+    .execute();
+
+  if (roles.length === 0) {
+    return null;
+  }
+
+  const role: OrganizationRole = {
+    id: roles[0].id,
+    name: roles[0].name,
+    description: roles[0].description,
+    organization_id: roles[0].organization_id,
+    is_system_role: roles[0].is_system_role,
+    created_at: roles[0].created_at,
+    updated_at: roles[0].updated_at,
+    permissions: [],
+  };
+
+  for (const row of roles) {
+    if (row.permission_name) {
+      role.permissions.push(row.permission_name);
+    }
+  }
+
+  return role;
+};
+
+export const updateRole = async (
+  organizationId: string,
+  roleId: string,
+  roleName?: string,
+  roleDescription?: string | null,
+): Promise<OrganizationRole> => {
+  const role = await getRoleById(organizationId, roleId);
+
+  if (!role) {
+    throw new NotFoundError("Role");
+  }
+
+  const updatedRole = await db
+    .updateTable("roles")
+    .set({
+      name: roleName ?? role.name,
+      description: roleDescription ?? role.description,
+    })
+    .where("id", "=", roleId)
+    .returning(ROLES_COLUMNS)
+    .executeTakeFirstOrThrow();
+
+  return {
+    ...updatedRole,
+    organization_id: organizationId,
+    permissions: role.permissions,
+  };
+};

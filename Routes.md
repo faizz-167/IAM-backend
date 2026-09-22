@@ -110,8 +110,8 @@ Mount at `/organizations/:orgId/roles` with `Router({ mergeParams: true })`, so
 - [x] `POST /organizations/:orgId/roles` — `ctx:ROLE:CREATE`
 - [x] `GET /organizations/:orgId/roles` — `ctx:ROLE:READ` · must return system
       roles alongside the org's own, since memberships can point at either
-- [ ] `GET /organizations/:orgId/roles/:roleId` — `ctx:ROLE:READ`
-- [ ] `PATCH /organizations/:orgId/roles/:roleId` — `ctx:ROLE:UPDATE`
+- [x] `GET /organizations/:orgId/roles/:roleId` — `ctx:ROLE:READ`
+- [x] `PATCH /organizations/:orgId/roles/:roleId` — `ctx:ROLE:UPDATE`
 - [ ] `DELETE /organizations/:orgId/roles/:roleId` — `ctx:ROLE:DELETE`
 - [ ] `GET /organizations/:orgId/roles/:roleId/permissions` — `ctx:ROLE:READ`
 - [ ] `PUT /organizations/:orgId/roles/:roleId/permissions` — `ctx:ROLE:UPDATE` ·

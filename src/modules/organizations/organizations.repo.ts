@@ -1,6 +1,9 @@
 import { DatabaseError } from "pg";
 import { db } from "../../database";
-import { CreateOrganizationInput } from "./organizations.schema";
+import {
+  CreateOrganizationInput,
+  UpdateOrganizationInput,
+} from "./organizations.schema";
 import {
   Organization,
   OrganizationStatus,
@@ -58,7 +61,7 @@ export const updateOrganizationStatus = async (
 
 export const updateOrganization = async (
   organizationId: string,
-  organization: CreateOrganizationInput,
+  organization: UpdateOrganizationInput,
 ) => {
   const updatedOrganization = await db
     .updateTable("organizations")

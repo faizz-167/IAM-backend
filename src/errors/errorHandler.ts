@@ -9,6 +9,14 @@ export function errorHandler(
   res: Response,
   _next: NextFunction,
 ) {
+  if (
+    err instanceof SyntaxError &&
+    "type" in err &&
+    err.type === "entity.parse.failed"
+  ) {
+    return res.status(400).json(fail("Invalid JSON payload"));
+  }
+
   if (err instanceof RequestError) {
     if (err.errors) {
       return res

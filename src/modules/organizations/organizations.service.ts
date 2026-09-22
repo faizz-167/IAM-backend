@@ -11,6 +11,7 @@ import {
   CreateOrganizationInput,
   CreateRoleInput,
   UpdateOrganizationInput,
+  UpdateRoleInput,
 } from "./organizations.schema";
 import { Organization, PublicOrganization, Role } from "./organizations.types";
 import { convertToPublicOrganization } from "./organizations.utils";
@@ -143,4 +144,36 @@ export const listRoles = async (organizationId: string): Promise<Role[]> => {
   const roles = await rolesRepo.getRolesByOrganizationId(organizationId);
 
   return roles;
+};
+
+export const getRoleById = async (
+  organizationId: string,
+  roleId: string,
+): Promise<Role> => {
+  const role = await rolesRepo.getRoleById(organizationId, roleId);
+
+  if (!role) {
+    throw new NotFoundError("Role");
+  }
+
+  return role;
+};
+
+export const updateRole = async (
+  organizationId: string,
+  roleId: string,
+  updateRoleInput: UpdateRoleInput,
+): Promise<Role> => {
+  const updatedRole = await rolesRepo.updateRole(
+    organizationId,
+    roleId,
+    updateRoleInput.role_name,
+    updateRoleInput.role_description,
+  );
+
+  if (!updatedRole) {
+    throw new NotFoundError("Role");
+  }
+
+  return updatedRole;
 };

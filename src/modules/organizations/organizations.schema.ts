@@ -17,6 +17,20 @@ export const createOrganizationSchema = z.object({
     ),
 });
 
+export const updateOrganizationSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(255).optional(),
+  slug: z
+    .string()
+    .trim()
+    .min(1, "Slug is required")
+    .max(255)
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "Slug may contain only lowercase letters, numbers and single hyphens",
+    )
+    .optional(),
+});
+
 export const updateOrganizationStatusSchema = z.object({
   status: z.enum(["ACTIVE", "SUSPENDED"]),
 });
@@ -39,8 +53,13 @@ export const createRoleSchema = z.object({
     .optional()
     .default([]),
 });
+export const updateRoleSchema = z.object({
+  role_name: z.string().trim().min(1, "Name is required").max(255).optional(),
+  role_description: z.string().trim().max(1000).optional(),
+});
 
-export type UpdateOrganizationInput = z.infer<typeof createOrganizationSchema>;
+export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type OrganizationIdParam = z.infer<typeof organizationIdParamSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
+export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
