@@ -132,7 +132,11 @@ export const createRoleController = async (
 ) => {
   try {
     const orgId = req.orgId as string;
-    const newRole = await organizationsService.createRole(orgId, req.body);
+    const newRole = await organizationsService.createRole(
+      orgId,
+      req.body,
+      req.authContext!.permissions,
+    );
     res.status(201).json(
       success(newRole, {
         message: "Role created successfully",
@@ -188,6 +192,49 @@ export const updateRoleController = async (
     res.status(200).json(
       success(updatedRole, {
         message: "Role updated successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteRoleController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const roleId = req.params.roleId as string;
+    await organizationsService.deleteRole(orgId, roleId);
+    res.status(200).json(
+      success(null, {
+        message: "Role deleted successfully",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateRolePermissionsController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const roleId = req.params.roleId as string;
+    const updatedRole = await organizationsService.updateRolePermissions(
+      orgId,
+      roleId,
+      req.body.permissions,
+      req.authContext!.permissions,
+    );
+    res.status(200).json(
+      success(updatedRole, {
+        message: "Role permissions updated successfully",
       }),
     );
   } catch (error) {

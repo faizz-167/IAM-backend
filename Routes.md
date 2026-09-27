@@ -112,9 +112,8 @@ Mount at `/organizations/:orgId/roles` with `Router({ mergeParams: true })`, so
       roles alongside the org's own, since memberships can point at either
 - [x] `GET /organizations/:orgId/roles/:roleId` — `ctx:ROLE:READ`
 - [x] `PATCH /organizations/:orgId/roles/:roleId` — `ctx:ROLE:UPDATE`
-- [ ] `DELETE /organizations/:orgId/roles/:roleId` — `ctx:ROLE:DELETE`
-- [ ] `GET /organizations/:orgId/roles/:roleId/permissions` — `ctx:ROLE:READ`
-- [ ] `PUT /organizations/:orgId/roles/:roleId/permissions` — `ctx:ROLE:UPDATE` ·
+- [x] `DELETE /organizations/:orgId/roles/:roleId` — `ctx:ROLE:DELETE`
+- [x] `PUT /organizations/:orgId/roles/:roleId/permissions` — `ctx:ROLE:UPDATE` ·
       replace the whole set in one transaction; simpler for clients than
       add/remove pairs
 

@@ -4,7 +4,7 @@ import { SystemRoleInput } from "./roles.schema";
 import { Role } from "./roles.types";
 import { Role as OrganizationRole } from "../organizations/organizations.types";
 import { DatabaseError } from "pg";
-import { PG_UNIQUE_VIOLATION } from "../../constants";
+import { PG_FOREIGN_KEY_VIOLATION, PG_UNIQUE_VIOLATION } from "../../constants";
 
 const ROLES_COLUMNS = [
   "id",
@@ -286,13 +286,31 @@ export const getRoleById = async (
   return role;
 };
 
+/**
+ * Like getRoleById, but refuses system roles. System roles are shared across
+ * every organization, so an org-scoped mutation must never touch them; treat
+ * them the same as "not found" rather than leaking their existence with a 403.
+ */
+export const getMutableOrgRoleById = async (
+  organizationId: string,
+  roleId: string,
+): Promise<OrganizationRole | null> => {
+  const role = await getRoleById(organizationId, roleId);
+
+  if (!role || role.is_system_role) {
+    return null;
+  }
+
+  return role;
+};
+
 export const updateRole = async (
   organizationId: string,
   roleId: string,
   roleName?: string,
   roleDescription?: string | null,
 ): Promise<OrganizationRole> => {
-  const role = await getRoleById(organizationId, roleId);
+  const role = await getMutableOrgRoleById(organizationId, roleId);
 
   if (!role) {
     throw new NotFoundError("Role");
@@ -313,4 +331,30 @@ export const updateRole = async (
     organization_id: organizationId,
     permissions: role.permissions,
   };
+};
+
+export const deleteRole = async (
+  organizationId: string,
+  roleId: string,
+): Promise<void> => {
+  const role = await getMutableOrgRoleById(organizationId, roleId);
+
+  if (!role) {
+    throw new NotFoundError("Role");
+  }
+
+  try {
+    await db.deleteFrom("roles").where("id", "=", roleId).execute();
+  } catch (error) {
+    if (
+      error instanceof DatabaseError &&
+      error.code === PG_FOREIGN_KEY_VIOLATION
+    ) {
+      throw new ConflictError(
+        "Role is still assigned to one or more members",
+      );
+    }
+
+    throw error;
+  }
 };

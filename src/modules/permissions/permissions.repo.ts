@@ -1,5 +1,5 @@
 import { db } from "../../database";
-import { ConflictError } from "../../errors/RequestError";
+import { ConflictError, NotFoundError } from "../../errors/RequestError";
 import { CreatePermissionRecord } from "./permissions.schema";
 import { Permission } from "./permissions.types";
 
@@ -63,10 +63,54 @@ export const getPermissionNamesByRoleId = async (
 ): Promise<string[]> => {
   const rows = await db
     .selectFrom("role_permissions")
-    .innerJoin("permissions", "permissions.id", "role_permissions.permission_id")
+    .innerJoin(
+      "permissions",
+      "permissions.id",
+      "role_permissions.permission_id",
+    )
     .where("role_permissions.role_id", "=", roleId)
     .select("permissions.name")
     .execute();
 
   return rows.map((row) => row.name);
+};
+
+export const updateRolePermissions = async (
+  roleId: string,
+  permissionNames: string[],
+): Promise<void> => {
+  await db.transaction().execute(async (trx) => {
+    await trx
+      .deleteFrom("role_permissions")
+      .where("role_id", "=", roleId)
+      .execute();
+
+    if (permissionNames.length === 0) {
+      return;
+    }
+
+    const permissionRows = await trx
+      .selectFrom("permissions")
+      .where("name", "in", permissionNames)
+      .select(["id", "name"])
+      .execute();
+
+    const missing = permissionNames.filter(
+      (name) => !permissionRows.some((permission) => permission.name === name),
+    );
+
+    if (missing.length > 0) {
+      throw new NotFoundError(`Permission ${missing.join(", ")}`);
+    }
+
+    await trx
+      .insertInto("role_permissions")
+      .values(
+        permissionRows.map((permission) => ({
+          role_id: roleId,
+          permission_id: permission.id,
+        })),
+      )
+      .execute();
+  });
 };

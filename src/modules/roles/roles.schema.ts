@@ -25,7 +25,16 @@ export const permissionNameParamSchema = z.object({
   ),
 });
 
+export const updateRolePermissionsSchema = z.object({
+  permissions: z.array(
+    z.enum(ALL_PERMISSION_NAMES as [PermissionName, ...PermissionName[]]),
+  ),
+});
+
 export type SystemRoleInput = z.infer<typeof systemRoleSchema>;
 export type AssignPermissionInput = z.infer<typeof assignPermissionSchema>;
 export type RoleIdParam = z.infer<typeof roleIdParamSchema>;
 export type PermissionNameParam = z.infer<typeof permissionNameParamSchema>;
+export type UpdateRolePermissionsInput = z.infer<
+  typeof updateRolePermissionsSchema
+>;

@@ -1,4 +1,5 @@
 import {
+  ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
@@ -7,6 +8,7 @@ import { getSystemRoleByName } from "../roles/roles.repo";
 import { getUserById } from "../users/user.repo";
 import * as organizationsRepo from "./organizations.repo";
 import * as rolesRepo from "../roles/roles.repo";
+import * as permissionsRepo from "../permissions/permissions.repo";
 import {
   CreateOrganizationInput,
   CreateRoleInput,
@@ -15,7 +17,25 @@ import {
 } from "./organizations.schema";
 import { Organization, PublicOrganization, Role } from "./organizations.types";
 import { convertToPublicOrganization } from "./organizations.utils";
-import { DEFAULT_ORGANIZATION_ROLE_PERMISSIONS } from "../permissions/permission.catalogue";
+import {
+  DEFAULT_ORGANIZATION_ROLE_PERMISSIONS,
+  PermissionName,
+} from "../permissions/permission.catalogue";
+
+const assertNoEscalation = (
+  requestedPermissions: string[],
+  callerPermissions: Set<PermissionName>,
+): void => {
+  const notHeld = requestedPermissions.filter(
+    (name) => !callerPermissions.has(name as PermissionName),
+  );
+
+  if (notHeld.length > 0) {
+    throw new ForbiddenError(
+      `Cannot grant permissions you do not hold: ${notHeld.join(", ")}`,
+    );
+  }
+};
 
 export const listOrganizations = async (): Promise<Organization[]> => {
   return await organizationsRepo.getAllOrganizations();
@@ -122,7 +142,10 @@ export const deleteOrganization = async (
 export const createRole = async (
   organizationId: string,
   createRoleInput: CreateRoleInput,
+  callerPermissions: Set<PermissionName>,
 ): Promise<Role> => {
+  assertNoEscalation(createRoleInput.permissions, callerPermissions);
+
   const permissions = Array.from(
     new Set<string>([
       ...DEFAULT_ORGANIZATION_ROLE_PERMISSIONS,
@@ -170,6 +193,38 @@ export const updateRole = async (
     updateRoleInput.role_name,
     updateRoleInput.role_description,
   );
+
+  if (!updatedRole) {
+    throw new NotFoundError("Role");
+  }
+
+  return updatedRole;
+};
+
+export const deleteRole = async (
+  organizationId: string,
+  roleId: string,
+): Promise<void> => {
+  await rolesRepo.deleteRole(organizationId, roleId);
+};
+
+export const updateRolePermissions = async (
+  organizationId: string,
+  roleId: string,
+  permissions: string[],
+  callerPermissions: Set<PermissionName>,
+): Promise<Role> => {
+  assertNoEscalation(permissions, callerPermissions);
+
+  const role = await rolesRepo.getMutableOrgRoleById(organizationId, roleId);
+
+  if (!role) {
+    throw new NotFoundError("Role");
+  }
+
+  await permissionsRepo.updateRolePermissions(roleId, permissions);
+
+  const updatedRole = await rolesRepo.getRoleById(organizationId, roleId);
 
   if (!updatedRole) {
     throw new NotFoundError("Role");

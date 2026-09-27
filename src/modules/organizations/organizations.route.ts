@@ -15,7 +15,10 @@ import { setOrgId } from "../../middlewares/organization.middleware";
 import { getAuthContext } from "../../middlewares/getAuthContext";
 import { requirePermission } from "../../middlewares/requirePermission";
 import { PERMISSIONS } from "../permissions/permission.catalogue";
-import { roleIdParamSchema } from "../roles/roles.schema";
+import {
+  roleIdParamSchema,
+  updateRolePermissionsSchema,
+} from "../roles/roles.schema";
 
 export const organizationsRouter = Router({ mergeParams: true });
 
@@ -112,4 +115,25 @@ organizationsRouter.patch(
   requirePermission(PERMISSIONS.ROLE_UPDATE),
   validateBody(createRoleSchema),
   organizationsController.updateRoleController,
+);
+
+organizationsRouter.delete(
+  "/:orgId/roles/:roleId",
+  validateParams(organizationIdParamSchema),
+  validateParams(roleIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ROLE_DELETE),
+  organizationsController.deleteRoleController,
+);
+
+organizationsRouter.put(
+  "/:orgId/roles/:roleId/permissions",
+  validateParams(organizationIdParamSchema),
+  validateParams(roleIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.ROLE_UPDATE),
+  validateBody(updateRolePermissionsSchema),
+  organizationsController.updateRolePermissionsController,
 );
