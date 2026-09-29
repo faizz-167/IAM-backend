@@ -58,8 +58,31 @@ export const updateRoleSchema = z.object({
   role_description: z.string().trim().max(1000).optional(),
 });
 
+export const listOrganizationsQuerySchema = z.object({
+  status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
+});
+
+export const listOrganizationMembersQuerySchema = z.object({
+  role: z.string().trim().min(1, "Role is required").max(255).optional(),
+  status: z.enum(["ACTIVE", "SUSPENDED", "REMOVED"]).optional(),
+});
+
+export const updateMemberRoleSchema = z.object({
+  role_id: z.uuid("Role id must be a valid UUID"),
+});
+
+export const updateMemberStatusSchema = z.object({
+  status: z.enum(["ACTIVE", "SUSPENDED"]),
+});
+
 export type UpdateOrganizationInput = z.infer<typeof updateOrganizationSchema>;
 export type CreateOrganizationInput = z.infer<typeof createOrganizationSchema>;
 export type OrganizationIdParam = z.infer<typeof organizationIdParamSchema>;
 export type CreateRoleInput = z.infer<typeof createRoleSchema>;
 export type UpdateRoleInput = z.infer<typeof updateRoleSchema>;
+export type ListOrganizationMembersQuery = z.infer<
+  typeof listOrganizationMembersQuerySchema
+>;
+export type ListOrganizationsQuery = z.infer<
+  typeof listOrganizationsQuerySchema
+>;

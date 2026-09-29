@@ -29,3 +29,19 @@ export type MembershipContext = {
   role_id: string;
   role_name: string;
 };
+
+export type Member = {
+  id: string;
+  email: string;
+  display_name: string;
+  role_id: string;
+  role_name: string;
+  status: MembershipStatus;
+  created_at: Date;
+  updated_at: Date;
+};
+
+export type MemberFilters = {
+  role?: string;
+  status?: MembershipStatus;
+};

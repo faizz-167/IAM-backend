@@ -1,6 +1,10 @@
 import { Request, Response, NextFunction } from "express";
 import { success } from "../../lib/response";
 import * as organizationsService from "./organizations.service";
+import {
+  ListOrganizationMembersQuery,
+  ListOrganizationsQuery,
+} from "./organizations.schema";
 
 export const listOrganizationsController = async (
   req: Request,
@@ -8,7 +12,8 @@ export const listOrganizationsController = async (
   next: NextFunction,
 ) => {
   try {
-    const organizations = await organizationsService.listOrganizations();
+    const filters = req.validatedQuery as ListOrganizationsQuery;
+    const organizations = await organizationsService.listOrganizations(filters);
     res.status(200).json(success(organizations));
   } catch (error) {
     next(error);
@@ -237,6 +242,24 @@ export const updateRolePermissionsController = async (
         message: "Role permissions updated successfully",
       }),
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const listOrganizationMembersController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    const orgId = req.orgId as string;
+    const filters = req.validatedQuery as ListOrganizationMembersQuery;
+    const members = await organizationsService.listOrganizationMembers(
+      orgId,
+      filters,
+    );
+    res.status(200).json(success(members));
   } catch (error) {
     next(error);
   }

@@ -8,6 +8,7 @@ declare global {
       isSuperAdmin?: boolean;
       orgId?: string;
       authContext?: AuthContext;
+      validatedQuery?: unknown;
     }
   }
 }

@@ -1,5 +1,4 @@
 import {
-  ForbiddenError,
   InternalServerError,
   NotFoundError,
   UnauthorizedError,
@@ -9,11 +8,13 @@ import { getUserById } from "../users/user.repo";
 import * as organizationsRepo from "./organizations.repo";
 import * as rolesRepo from "../roles/roles.repo";
 import * as permissionsRepo from "../permissions/permissions.repo";
+import * as membersRepo from "../members/members.repo";
 import {
   CreateOrganizationInput,
   CreateRoleInput,
   UpdateOrganizationInput,
   UpdateRoleInput,
+  ListOrganizationsQuery,
 } from "./organizations.schema";
 import { Organization, PublicOrganization, Role } from "./organizations.types";
 import { convertToPublicOrganization } from "./organizations.utils";
@@ -21,24 +22,13 @@ import {
   DEFAULT_ORGANIZATION_ROLE_PERMISSIONS,
   PermissionName,
 } from "../permissions/permission.catalogue";
+import { Member, MemberFilters } from "../members/members.types";
+import { assertNoEscalation } from "../permissions/permissions.utils";
 
-const assertNoEscalation = (
-  requestedPermissions: string[],
-  callerPermissions: Set<PermissionName>,
-): void => {
-  const notHeld = requestedPermissions.filter(
-    (name) => !callerPermissions.has(name as PermissionName),
-  );
-
-  if (notHeld.length > 0) {
-    throw new ForbiddenError(
-      `Cannot grant permissions you do not hold: ${notHeld.join(", ")}`,
-    );
-  }
-};
-
-export const listOrganizations = async (): Promise<Organization[]> => {
-  return await organizationsRepo.getAllOrganizations();
+export const listOrganizations = async (
+  filters: ListOrganizationsQuery = {},
+): Promise<Organization[]> => {
+  return await organizationsRepo.getAllOrganizations(filters.status);
 };
 
 export const updateOrganizationStatus = async (
@@ -222,7 +212,11 @@ export const updateRolePermissions = async (
     throw new NotFoundError("Role");
   }
 
-  await permissionsRepo.updateRolePermissions(roleId, permissions);
+  const permissionsWithDefaults = Array.from(
+    new Set<string>([...DEFAULT_ORGANIZATION_ROLE_PERMISSIONS, ...permissions]),
+  );
+
+  await permissionsRepo.updateRolePermissions(roleId, permissionsWithDefaults);
 
   const updatedRole = await rolesRepo.getRoleById(organizationId, roleId);
 
@@ -231,4 +225,16 @@ export const updateRolePermissions = async (
   }
 
   return updatedRole;
+};
+
+export const listOrganizationMembers = async (
+  organizationId: string,
+  filters: MemberFilters = {},
+): Promise<Member[]> => {
+  const members = await membersRepo.getOrganizationMembers(
+    organizationId,
+    filters,
+  );
+
+  return members;
 };

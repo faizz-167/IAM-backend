@@ -1,5 +1,9 @@
 import { db } from "../../database";
-import { ConflictError, NotFoundError } from "../../errors/RequestError";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+} from "../../errors/RequestError";
 import { SystemRoleInput } from "./roles.schema";
 import { Role } from "./roles.types";
 import { Role as OrganizationRole } from "../organizations/organizations.types";
@@ -286,19 +290,18 @@ export const getRoleById = async (
   return role;
 };
 
-/**
- * Like getRoleById, but refuses system roles. System roles are shared across
- * every organization, so an org-scoped mutation must never touch them; treat
- * them the same as "not found" rather than leaking their existence with a 403.
- */
 export const getMutableOrgRoleById = async (
   organizationId: string,
   roleId: string,
 ): Promise<OrganizationRole | null> => {
   const role = await getRoleById(organizationId, roleId);
 
-  if (!role || role.is_system_role) {
+  if (!role) {
     return null;
+  }
+
+  if (role.is_system_role) {
+    throw new ForbiddenError("System roles cannot be modified or deleted");
   }
 
   return role;
@@ -350,9 +353,7 @@ export const deleteRole = async (
       error instanceof DatabaseError &&
       error.code === PG_FOREIGN_KEY_VIOLATION
     ) {
-      throw new ConflictError(
-        "Role is still assigned to one or more members",
-      );
+      throw new ConflictError("Role is still assigned to one or more members");
     }
 
     throw error;

@@ -138,14 +138,13 @@ Roles exist now, so memberships can be moved between them.
 
 Mount at `/organizations/:orgId/members`.
 
-- [ ] `GET /organizations/:orgId/members` — `ctx:MEMBERSHIP:READ` · paginated
-- [ ] `GET /organizations/:orgId/members/:membershipId` — `ctx:MEMBERSHIP:READ`
-- [ ] `PATCH /organizations/:orgId/members/:membershipId/role` — `ctx:MEMBERSHIP:UPDATE`
-- [ ] `PATCH /organizations/:orgId/members/:membershipId/status` — `ctx:MEMBERSHIP:UPDATE` ·
+- [x] `GET /organizations/:orgId/members` — `ctx:MEMBERSHIP:READ` · paginated
+- [x] `PATCH /organizations/:orgId/members/:membershipId/role` — `ctx:MEMBERSHIP:UPDATE`
+- [x] `PATCH /organizations/:orgId/members/:membershipId/status` — `ctx:MEMBERSHIP:UPDATE` ·
       ACTIVE / SUSPENDED
-- [ ] `DELETE /organizations/:orgId/members/:membershipId` — `ctx:MEMBERSHIP:DELETE` ·
+- [x] `DELETE /organizations/:orgId/members/:membershipId` — `ctx:MEMBERSHIP:DELETE` ·
       status `REMOVED`, not a row delete
-- [ ] `DELETE /organizations/:orgId/members/me` — `auth` + membership only ·
+- [x] `DELETE /organizations/:orgId/members/me` — `auth` + membership only ·
       leave the organization, no permission required
 
 **The last-owner invariant belongs here.** Demoting, suspending, removing, or

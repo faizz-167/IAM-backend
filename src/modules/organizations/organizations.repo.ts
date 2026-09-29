@@ -24,13 +24,18 @@ const ORG_COLUMNS = [
   "updated_at",
 ] as const;
 
-export const getAllOrganizations = async () => {
-  return await db
+export const getAllOrganizations = async (status?: OrganizationStatus) => {
+  let query = db
     .selectFrom("organizations")
     .where("deleted_at", "is", null)
     .select(ORG_COLUMNS)
-    .orderBy("created_at", "asc")
-    .execute();
+    .orderBy("created_at", "asc");
+
+  if (status) {
+    query = query.where("status", "=", status);
+  }
+
+  return await query.execute();
 };
 
 export const getOrganizationById = async (organizationId: string) => {

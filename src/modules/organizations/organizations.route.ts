@@ -1,14 +1,20 @@
 import { Router } from "express";
 import { validateBody } from "../../lib/validateBody";
 import { validateParams } from "../../lib/validateParams";
+import { validateQuery } from "../../lib/validateQuery";
 import {
   createOrganizationSchema,
   createRoleSchema,
+  listOrganizationMembersQuerySchema,
+  listOrganizationsQuerySchema,
   organizationIdParamSchema,
+  updateMemberRoleSchema,
+  updateMemberStatusSchema,
   updateOrganizationSchema,
   updateOrganizationStatusSchema,
 } from "./organizations.schema";
 import * as organizationsController from "./organizations.controller";
+import * as membersController from "../members/members.controller";
 import { authenticate } from "../../middlewares/auth.middleware";
 import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
 import { setOrgId } from "../../middlewares/organization.middleware";
@@ -19,6 +25,7 @@ import {
   roleIdParamSchema,
   updateRolePermissionsSchema,
 } from "../roles/roles.schema";
+import { membershipIdParamSchema } from "../members/members.schema";
 
 export const organizationsRouter = Router({ mergeParams: true });
 
@@ -38,6 +45,7 @@ organizationsRouter.get(
 organizationsRouter.get(
   "/admin",
   requireSuperAdmin,
+  validateQuery(listOrganizationsQuerySchema),
   organizationsController.listOrganizationsController,
 );
 
@@ -136,4 +144,54 @@ organizationsRouter.put(
   requirePermission(PERMISSIONS.ROLE_UPDATE),
   validateBody(updateRolePermissionsSchema),
   organizationsController.updateRolePermissionsController,
+);
+
+organizationsRouter.get(
+  "/:orgId/members",
+  validateParams(organizationIdParamSchema),
+  validateQuery(listOrganizationMembersQuerySchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_READ),
+  organizationsController.listOrganizationMembersController,
+);
+
+organizationsRouter.delete(
+  "/:orgId/members/me",
+  validateParams(organizationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  membersController.deleteMyMembershipController,
+);
+
+organizationsRouter.patch(
+  "/:orgId/members/:membershipId/role",
+  validateParams(organizationIdParamSchema),
+  validateParams(membershipIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_UPDATE),
+  validateBody(updateMemberRoleSchema),
+  membersController.updateMemberRoleController,
+);
+
+organizationsRouter.patch(
+  "/:orgId/members/:membershipId/status",
+  validateParams(organizationIdParamSchema),
+  validateParams(membershipIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_UPDATE),
+  validateBody(updateMemberStatusSchema),
+  membersController.updateMemberStatusController,
+);
+
+organizationsRouter.delete(
+  "/:orgId/members/:membershipId",
+  validateParams(organizationIdParamSchema),
+  validateParams(membershipIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_DELETE),
+  membersController.deleteMembershipController,
 );
