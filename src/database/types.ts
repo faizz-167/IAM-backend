@@ -75,9 +75,10 @@ interface RolesTable {
 type PermissionResource = "ORGANIZATION" | "ROLE" | "MEMBERSHIP" | "AUDIT";
 
 /** Wider than `PermissionResource`: audit rows cover things nobody grants on. */
-type AuditResource =
+export type AuditResource =
   | "ORGANIZATION"
   | "ROLE"
+  | "PERMISSION"
   | "MEMBERSHIP"
   | "USER"
   | "INVITATION"
@@ -115,11 +116,7 @@ interface MembershipsTable {
 }
 
 type InvitationStatus =
-  | "PENDING"
-  | "ACCEPTED"
-  | "REJECTED"
-  | "EXPIRED"
-  | "REVOKED";
+  "PENDING" | "ACCEPTED" | "REJECTED" | "EXPIRED" | "REVOKED";
 
 interface InvitationsTable {
   id: GeneratedAlways<string>;

@@ -3,6 +3,9 @@ import { DatabaseError } from "pg";
 import { db } from "../../database";
 import { PG_UNIQUE_VIOLATION } from "../../constants";
 import { ConflictError } from "../../errors/RequestError";
+import { paginate, Paginated, PaginationQuery } from "../../lib/pagination";
+import { recordAudit } from "../audit/audit.service";
+import { AuditBuilder } from "../audit/audit.types";
 import {
   CreateInvitationRecord,
   Invitation,
@@ -95,8 +98,9 @@ export const deleteInvitation = async (invitationId: string): Promise<void> => {
 
 export const listInvitations = async (
   organizationId: string,
-  filters: InvitationFilters = {},
-): Promise<InvitationWithRole[]> => {
+  filters: InvitationFilters,
+  pagination: PaginationQuery,
+): Promise<Paginated<InvitationWithRole>> => {
   let query = db
     .selectFrom("invitations")
     .innerJoin("roles", "roles.id", "invitations.role_id")
@@ -112,13 +116,14 @@ export const listInvitations = async (
       "invitations.created_at",
       "invitations.expires_at",
     ])
-    .orderBy("invitations.created_at", "desc");
+    .orderBy("invitations.created_at", "desc")
+    .orderBy("invitations.id", "desc");
 
   if (filters.status) {
     query = query.where("invitations.status", "=", filters.status);
   }
 
-  return await query.execute();
+  return await paginate(query, pagination);
 };
 
 export const getOrganizationInvitation = async (
@@ -251,6 +256,7 @@ export const rejectInvitation = async (
 export const acceptInvitation = async (
   invitationId: string,
   userId: string,
+  audit?: AuditBuilder<{ membership_id: string; organization_id: string }>,
 ): Promise<{ membership_id: string; organization_id: string } | null> => {
   try {
     return await db.transaction().execute(async (trx) => {
@@ -277,10 +283,16 @@ export const acceptInvitation = async (
         .returning(["id", "organization_id"])
         .executeTakeFirstOrThrow();
 
-      return {
+      const accepted = {
         membership_id: membership.id,
         organization_id: membership.organization_id,
       };
+
+      if (audit) {
+        await recordAudit(audit(accepted), trx);
+      }
+
+      return accepted;
     });
   } catch (error) {
     if (error instanceof DatabaseError && error.code === PG_UNIQUE_VIOLATION) {

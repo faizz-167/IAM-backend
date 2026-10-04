@@ -1,4 +1,6 @@
+import { Transaction } from "kysely";
 import { db } from "../../database";
+import { Database } from "../../database/types";
 import {
   ConflictError,
   ForbiddenError,
@@ -8,6 +10,8 @@ import { SystemRoleInput } from "./roles.schema";
 import { Role } from "./roles.types";
 import { Role as OrganizationRole } from "../organizations/organizations.types";
 import { DatabaseError } from "pg";
+import { recordAudit } from "../audit/audit.service";
+import { AuditBuilder } from "../audit/audit.types";
 import { PG_FOREIGN_KEY_VIOLATION, PG_UNIQUE_VIOLATION } from "../../constants";
 
 const ROLES_COLUMNS = [
@@ -130,6 +134,7 @@ export const createRole = async (
   roleName: string,
   roleDescription: string | null,
   permissions: string[] = [],
+  audit?: AuditBuilder<OrganizationRole>,
 ): Promise<OrganizationRole> => {
   try {
     return await db.transaction().execute(async (trx) => {
@@ -144,40 +149,25 @@ export const createRole = async (
         .returning(ROLES_COLUMNS)
         .executeTakeFirstOrThrow();
 
-      if (permissions.length === 0) {
-        return { ...role, organization_id: organizationId, permissions: [] };
-      }
-
-      const permissionRows = await trx
-        .selectFrom("permissions")
-        .where("name", "in", permissions)
-        .select(["id", "name"])
-        .execute();
-
-      const missing = permissions.filter(
-        (name) =>
-          !permissionRows.some((permission) => permission.name === name),
-      );
-
-      if (missing.length > 0) {
-        throw new NotFoundError(`Permission ${missing.join(", ")}`);
-      }
-
-      await trx
-        .insertInto("role_permissions")
-        .values(
-          permissionRows.map((permission) => ({
-            role_id: role.id,
-            permission_id: permission.id,
-          })),
-        )
-        .execute();
-
-      return {
+      const created: OrganizationRole = {
         ...role,
         organization_id: organizationId,
-        permissions: permissionRows.map((permission) => permission.name),
+        permissions: [],
       };
+
+      if (permissions.length > 0) {
+        created.permissions = await insertRolePermissions(
+          trx,
+          role.id,
+          permissions,
+        );
+      }
+
+      if (audit) {
+        await recordAudit(audit(created), trx);
+      }
+
+      return created;
     });
   } catch (error) {
     if (error instanceof DatabaseError && error.code === PG_UNIQUE_VIOLATION) {
@@ -188,6 +178,38 @@ export const createRole = async (
 
     throw error;
   }
+};
+
+const insertRolePermissions = async (
+  trx: Transaction<Database>,
+  roleId: string,
+  permissions: string[],
+): Promise<string[]> => {
+  const permissionRows = await trx
+    .selectFrom("permissions")
+    .where("name", "in", permissions)
+    .select(["id", "name"])
+    .execute();
+
+  const missing = permissions.filter(
+    (name) => !permissionRows.some((permission) => permission.name === name),
+  );
+
+  if (missing.length > 0) {
+    throw new NotFoundError(`Permission ${missing.join(", ")}`);
+  }
+
+  await trx
+    .insertInto("role_permissions")
+    .values(
+      permissionRows.map((permission) => ({
+        role_id: roleId,
+        permission_id: permission.id,
+      })),
+    )
+    .execute();
+
+  return permissionRows.map((permission) => permission.name);
 };
 
 export const getRolesByOrganizationId = async (

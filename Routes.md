@@ -221,28 +221,39 @@ earlier if you want it sooner.
 
 ### Sessions — `/sessions`
 
-- [ ] `GET /sessions` — `auth` · the caller's active sessions, current one
+- [x] `GET /sessions` — `auth` · the caller's active sessions, current one
       flagged via `req.sessionId`
-- [ ] `DELETE /sessions/:sessionId` — `auth` · revoke one, ownership-checked
+- [x] `DELETE /sessions/:sessionId` — `auth` · revoke one, ownership-checked
 
-`sessions.device_name` is never written. Either populate it from the user-agent
-on login or drop the column.
+`sessions.device_name` is filled from the user-agent on login and refresh
+(`src/lib/deviceName.ts`, e.g. "Firefox on Linux").
 
 ### Account — `/users`
 
-- [ ] `PATCH /users/me` — `auth` · display name
-- [ ] `POST /users/me/password` — `auth` · requires current password; revoke all
+- [x] `PATCH /users/me` — `auth` · display name
+- [x] `POST /users/me/password` — `auth` · requires current password; revoke all
       other sessions on success
-- [ ] `DELETE /users/me` — `auth` · soft delete, revoke everything
+- [x] `DELETE /users/me` — `auth` · soft delete, revoke everything
 
 ### Password reset — `/auth`
 
-- [ ] `POST /auth/password/forgot` — — · otpLimiter. Always return 200, whether
+- [x] `POST /auth/password/forgot` — — · otpLimiter. Always return 200, whether
       or not the email exists, or this becomes an account-enumeration oracle.
-- [ ] `POST /auth/password/reset` — — · token + new password; revoke all sessions
+- [x] `POST /auth/password/reset` — — · token + new password; revoke all sessions
 
 There is no `password_resets` table. Use Redis with a TTL, the same shape as the
 email OTP in `auth.service.ts` — no migration needed.
+
+Settled:
+
+- `DELETE /users/me` requires the current password in the body; a stolen access
+  token alone cannot delete the account. It refuses while the user owns an
+  organization or is the last super admin. It removes memberships, credentials
+  and email rows (freeing the address) and revokes every session.
+- Reset tokens are 256-bit, stored in Redis under their hash, single-use via
+  `GETDEL`, and a new request kills the previous token. The forgot endpoint
+  does the lookup on the request path and everything else off it, so neither
+  the response nor its timing reveals whether the email exists.
 
 ---
 
@@ -250,18 +261,24 @@ email OTP in `auth.service.ts` — no migration needed.
 
 The table has existed since migration 009 and nothing has ever written to it.
 
-- [ ] **Audit writer service** — prerequisite, not a route. A single
+- [x] **Audit writer service** — prerequisite, not a route. A single
       `recordAudit()` called from the services that mutate state: org create /
       update / status, role and permission changes, member role and status
       changes, invitation lifecycle, login and logout. Write it inside the
       caller's transaction where one exists, so an audit row cannot survive a
       rolled-back change.
-- [ ] `GET /organizations/:orgId/audit-logs` — `ctx:AUDIT:READ` · filter by
+- [x] `GET /organizations/:orgId/audit-logs` — `ctx:AUDIT:READ` · filter by
       actor, resource, date range; paginated
-- [ ] `GET /admin/audit-logs` — `super` · cross-organization
+- [x] `GET /admin/audit-logs` — `super` · cross-organization
 
 Backfill is impossible, so the longer this waits the bigger the hole in the
 record.
+
+Settled: `recordAudit()` lives in `src/modules/audit/audit.service.ts`. IP and
+user agent come from an `AsyncLocalStorage` request context, so services do not
+take `req`. Repositories that own a transaction take an `AuditBuilder` and write
+the row inside it. Action names are in `AUDIT_ACTIONS`. Migration 011 adds
+`PERMISSION` to the audit resource check.
 
 ---
 
@@ -270,13 +287,13 @@ record.
 Platform operations. Last because nothing else depends on it — the Phase 0
 scripts already cover what is strictly needed to run the system.
 
-- [ ] `GET /admin/users` — `super` · paginated, searchable
-- [ ] `GET /admin/users/:userId` — `super` · with memberships
-- [ ] `PATCH /admin/users/:userId/status` — `super` · ACTIVE / SUSPENDED / LOCKED
-- [ ] `PATCH /admin/users/:userId/super-admin` — `super` · grant and revoke;
+- [x] `GET /admin/users` — `super` · paginated, searchable
+- [x] `GET /admin/users/:userId` — `super` · with memberships
+- [x] `PATCH /admin/users/:userId/status` — `super` · ACTIVE / SUSPENDED / LOCKED
+- [x] `PATCH /admin/users/:userId/super-admin` — `super` · grant and revoke;
       must refuse to remove the last super admin
-- [ ] `DELETE /admin/users/:userId/sessions` — `super` · force logout
-- [ ] `DELETE /permissions/:permissionId` — `super` · completes the permissions
+- [x] `DELETE /admin/users/:userId/sessions` — `super` · force logout
+- [x] `DELETE /permissions/:permissionId` — `super` · completes the permissions
       resource
 
 ---
@@ -299,9 +316,11 @@ match: a role or member belonging to another org is a 404 _after_ the org-level
 **Every mutation gets an audit row** once Phase 6 lands. Add the call in the
 same commit as the route, not in a sweep afterwards.
 
-**Pagination on every list route** — `GET /permissions` and
-`GET /organizations/admin` currently return unbounded result sets and should be
-retrofitted when the shared helper exists.
+**Pagination on every list route.** Use `paginationQuerySchema` and
+`paginate()` from `src/lib/pagination.ts` (`?page=&limit=`, limit max 100). The
+response keeps `data` as the array and puts `{ page, limit, total, total_pages }`
+in `meta.pagination`. Already retrofitted: members, invitations, permissions,
+`GET /organizations/admin`.
 
 ---
 

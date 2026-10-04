@@ -8,12 +8,11 @@ import { httpLogger } from "./lib/httpLogger";
 import cookieParser from "cookie-parser";
 import { env } from "./config/env";
 import { globalLimiter } from "./middlewares/rateLimit";
+import { requestContext } from "./lib/requestContext";
 
 export const createApp = (): Express => {
   const app = express();
 
-  // Must match the real deployment topology: rate limiting keys on req.ip.
-  app.set("trust proxy", env.trustProxy);
   app.disable("x-powered-by");
 
   app.use(helmet());
@@ -30,6 +29,7 @@ export const createApp = (): Express => {
   app.use(cookieParser());
 
   app.use(globalLimiter);
+  app.use(requestContext);
   app.use("/api/v1", apiRouter);
 
   app.use(notFoundHandler);

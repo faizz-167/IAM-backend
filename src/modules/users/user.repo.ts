@@ -1,4 +1,7 @@
-import { sql } from "kysely";
+import { sql, Transaction } from "kysely";
+import { Database } from "../../database/types";
+import { recordAudit } from "../audit/audit.service";
+import { AuditEntry } from "../audit/audit.types";
 import { db } from "../../database";
 import { UserAuthState, UserWithCredentials } from "./user.types";
 import { ConflictError, InternalServerError } from "../../errors/RequestError";
@@ -139,4 +142,118 @@ export const getUserByEmail = async (
     .executeTakeFirst();
 
   return result ?? null;
+};
+
+export const updateDisplayName = async (
+  userId: string,
+  displayName: string,
+): Promise<void> => {
+  await db
+    .updateTable("users")
+    .set({ display_name: displayName })
+    .where("id", "=", userId)
+    .where("deleted_at", "is", null)
+    .execute();
+};
+
+/** Setting a password also clears any lockout left from failed logins. */
+export const updatePasswordHash = async (
+  userId: string,
+  passwordHash: string,
+): Promise<void> => {
+  await db
+    .updateTable("user_credentials")
+    .set({
+      password_hash: passwordHash,
+      failed_login_attempts: 0,
+      locked_until: null,
+    })
+    .where("user_id", "=", userId)
+    .where("type", "=", "password")
+    .execute();
+};
+
+export const isOwnerOfAnyOrganization = async (
+  userId: string,
+  ownerRoleId: string,
+): Promise<boolean> => {
+  const row = await db
+    .selectFrom("memberships")
+    .innerJoin(
+      "organizations",
+      "organizations.id",
+      "memberships.organization_id",
+    )
+    .where("memberships.user_id", "=", userId)
+    .where("memberships.role_id", "=", ownerRoleId)
+    .where("organizations.deleted_at", "is", null)
+    .select("memberships.id")
+    .executeTakeFirst();
+
+  return row !== undefined;
+};
+
+/**
+ * Locks every live super admin row and returns their ids. Callers that remove
+ * super-admin power check the count under this lock, so two concurrent
+ * demotions cannot both see "one other admin left" and leave none.
+ */
+export const lockSuperAdmins = async (
+  trx: Transaction<Database>,
+): Promise<string[]> => {
+  const rows = await trx
+    .selectFrom("users")
+    .where("is_super_admin", "=", true)
+    .where("deleted_at", "is", null)
+    .select("id")
+    .forUpdate()
+    .execute();
+
+  return rows.map((row) => row.id);
+};
+
+/**
+ * Soft-deletes the user and strips everything that would let the account act
+ * or be found again: memberships, credentials, email addresses (which also
+ * frees the address for a new registration) and live sessions. Returns the
+ * revoked session ids so their access tokens can be denylisted.
+ */
+export const softDeleteUser = async (
+  userId: string,
+  audit: AuditEntry,
+): Promise<string[]> => {
+  return await db.transaction().execute(async (trx) => {
+    const superAdmins = await lockSuperAdmins(trx);
+
+    if (superAdmins.includes(userId) && superAdmins.length === 1) {
+      throw new ConflictError(
+        "The last super admin cannot delete their account",
+      );
+    }
+
+    await trx
+      .updateTable("users")
+      .set({ deleted_at: sql<string>`now()`, is_super_admin: false })
+      .where("id", "=", userId)
+      .execute();
+
+    await trx.deleteFrom("memberships").where("user_id", "=", userId).execute();
+    await trx.deleteFrom("user_emails").where("user_id", "=", userId).execute();
+    await trx
+      .deleteFrom("user_credentials")
+      .where("user_id", "=", userId)
+      .execute();
+
+    const sessions = await trx
+      .updateTable("sessions")
+      .set({ revoked_at: sql<string>`now()` })
+      .where("user_id", "=", userId)
+      .where("revoked_at", "is", null)
+      .returning("id")
+      .execute();
+
+    await recordAudit(audit, trx);
+
+    return sessions.map((row) => row.id);
+  });
 };

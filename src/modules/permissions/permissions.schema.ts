@@ -11,12 +11,17 @@ export const createPermissionSchema = z
   // The catalogue is a subset of every resource x action pair, so reject the
   // combinations that are not real permissions.
   .refine(
-    ({ resource, action }) => isPermissionName(permissionName(resource, action)),
+    ({ resource, action }) =>
+      isPermissionName(permissionName(resource, action)),
     {
       message: "This resource and action combination is not a permission",
       path: ["action"],
     },
   );
+
+export const permissionIdParamSchema = z.object({
+  permissionId: z.uuid("Permission id must be a valid UUID"),
+});
 
 export type CreatePermissionInput = z.infer<typeof createPermissionSchema>;
 

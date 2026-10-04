@@ -13,11 +13,6 @@ const OPTIONS: jwt.SignOptions = {
   algorithm: "HS256",
 };
 
-/**
- * The session id travels in the token so `authenticate` can check it against
- * the revocation denylist. Without it a logout could not reach tokens that were
- * already handed out.
- */
 export function signInToken(userId: string, sessionId: string): string {
   const payload: JwtPayload = {
     userId,

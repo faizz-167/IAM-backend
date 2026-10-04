@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "../../lib/pagination";
 import {
   ALL_PERMISSION_NAMES,
   PermissionName,
@@ -58,11 +59,11 @@ export const updateRoleSchema = z.object({
   role_description: z.string().trim().max(1000).optional(),
 });
 
-export const listOrganizationsQuerySchema = z.object({
+export const listOrganizationsQuerySchema = paginationQuerySchema.extend({
   status: z.enum(["ACTIVE", "SUSPENDED"]).optional(),
 });
 
-export const listOrganizationMembersQuerySchema = z.object({
+export const listOrganizationMembersQuerySchema = paginationQuerySchema.extend({
   role: z.string().trim().min(1, "Role is required").max(255).optional(),
   status: z.enum(["ACTIVE", "SUSPENDED", "REMOVED"]).optional(),
 });

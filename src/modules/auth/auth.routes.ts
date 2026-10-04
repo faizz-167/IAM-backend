@@ -1,6 +1,12 @@
 import { Router } from "express";
 import { validateBody } from "../../lib/validateBody";
-import { emailVerifySchema, loginSchema, registerSchema } from "./auth.schema";
+import {
+  emailVerifySchema,
+  forgotPasswordSchema,
+  loginSchema,
+  registerSchema,
+  resetPasswordSchema,
+} from "./auth.schema";
 import * as authController from "./auth.controller";
 import { authenticate } from "../../middlewares/auth.middleware";
 import {
@@ -52,4 +58,18 @@ authRouter.post(
   authenticate,
   validateBody(emailVerifySchema),
   authController.verifyEmailController,
+);
+
+authRouter.post(
+  "/password/forgot",
+  otpLimiter,
+  validateBody(forgotPasswordSchema),
+  authController.forgotPasswordController,
+);
+
+authRouter.post(
+  "/password/reset",
+  authLimiter,
+  validateBody(resetPasswordSchema),
+  authController.resetPasswordController,
 );

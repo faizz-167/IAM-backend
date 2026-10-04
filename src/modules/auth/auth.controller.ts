@@ -201,3 +201,37 @@ export const verifyEmailController = async (
     next(error);
   }
 };
+
+export const forgotPasswordController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    await authService.requestPasswordReset(req.body.email);
+    res.status(200).json(
+      success(null, {
+        message:
+          "If an account exists for this email, a password reset link has been sent",
+      }),
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const resetPasswordController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  try {
+    await authService.resetPassword(req.body.token, req.body.password);
+    res.clearCookie(REFRESH_TOKEN_COOKIE_NAME, LOGOUT_COOKIE_OPTIONS);
+    res
+      .status(200)
+      .json(success(null, { message: "Password reset successfully" }));
+  } catch (error) {
+    next(error);
+  }
+};

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { paginationQuerySchema } from "../../lib/pagination";
 
 export const createInvitationSchema = z.object({
   email: z.email("Invalid email address").trim().toLowerCase(),
@@ -13,7 +14,7 @@ export const invitationTokenParamSchema = z.object({
   token: z.string().regex(/^[a-f0-9]{64}$/, "Invitation token is invalid"),
 });
 
-export const listInvitationsQuerySchema = z.object({
+export const listInvitationsQuerySchema = paginationQuerySchema.extend({
   status: z
     .enum(["PENDING", "ACCEPTED", "REJECTED", "EXPIRED", "REVOKED"])
     .optional(),

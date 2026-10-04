@@ -1,6 +1,7 @@
+import { sql } from "kysely";
 import { db } from "../../database";
 import { UnauthenticatedError } from "../../errors/RequestError";
-import { Session } from "./session.types";
+import { ActiveSession, Session } from "./session.types";
 
 const SESSION_COLUMNS = [
   "id",
@@ -20,6 +21,7 @@ export const createSession = async (input: Session) => {
       expires_at: input.expires_at,
       ip_address: input.ip_address ?? null,
       user_agent: input.user_agent ?? null,
+      device_name: input.device_name ?? null,
       ...(input.family_id ? { family_id: input.family_id } : {}),
     })
     .returning(SESSION_COLUMNS)
@@ -48,6 +50,7 @@ export const rotateSession = async (
         expires_at: input.expires_at,
         ip_address: input.ip_address ?? null,
         user_agent: input.user_agent ?? null,
+        device_name: input.device_name ?? null,
         ...(input.family_id ? { family_id: input.family_id } : {}),
       })
       .returning(SESSION_COLUMNS)
@@ -114,6 +117,66 @@ export const revokeAllUserSessions = async (
     .updateTable("sessions")
     .set({ revoked_at: new Date().toISOString() })
     .where("user_id", "=", userId)
+    .where("revoked_at", "is", null)
+    .returning("id")
+    .execute();
+
+  return rows.map((row) => row.id);
+};
+
+/**
+ * Each login is one family and only its newest row is unrevoked, so this lists
+ * one row per signed-in device.
+ */
+export const listActiveUserSessions = async (
+  userId: string,
+  currentSessionId?: string,
+): Promise<ActiveSession[]> => {
+  const rows = await db
+    .selectFrom("sessions")
+    .where("user_id", "=", userId)
+    .where("revoked_at", "is", null)
+    .where("expires_at", ">", sql<Date>`now()`)
+    .select([
+      "id",
+      "device_name",
+      "user_agent",
+      "ip_address",
+      "created_at",
+      "expires_at",
+    ])
+    .orderBy("created_at", "desc")
+    .execute();
+
+  return rows.map((row) => ({ ...row, current: row.id === currentSessionId }));
+};
+
+/** Ownership is part of the WHERE: another user's session id revokes nothing. */
+export const revokeUserSession = async (
+  userId: string,
+  sessionId: string,
+): Promise<string[]> => {
+  const rows = await db
+    .updateTable("sessions")
+    .set({ revoked_at: new Date().toISOString() })
+    .where("id", "=", sessionId)
+    .where("user_id", "=", userId)
+    .where("revoked_at", "is", null)
+    .returning("id")
+    .execute();
+
+  return rows.map((row) => row.id);
+};
+
+export const revokeOtherUserSessions = async (
+  userId: string,
+  keepSessionId: string,
+): Promise<string[]> => {
+  const rows = await db
+    .updateTable("sessions")
+    .set({ revoked_at: new Date().toISOString() })
+    .where("user_id", "=", userId)
+    .where("id", "!=", keepSessionId)
     .where("revoked_at", "is", null)
     .returning("id")
     .execute();

@@ -8,6 +8,9 @@ import {
   NotFoundError,
 } from "../../errors/RequestError";
 import { hashToken } from "../../lib/token";
+import { Paginated } from "../../lib/pagination";
+import { recordAudit } from "../audit/audit.service";
+import { AUDIT_ACTIONS } from "../audit/audit.types";
 import { logger } from "../../lib/logger";
 import { AuthContext } from "../auth/auth.types";
 import * as organizationsRepo from "../organizations/organizations.repo";
@@ -92,15 +95,28 @@ export const createInvitation = async (
     throw new InternalServerError("Failed to send invitation email");
   }
 
+  await recordAudit({
+    action: AUDIT_ACTIONS.INVITATION_CREATED,
+    resource: "INVITATION",
+    actorUserId: authContext.userId,
+    organizationId: orgId,
+    targetId: invitation.id,
+    metadata: { email: invitation.email, role_id: invitation.role_id },
+  });
+
   return invitation;
 };
 
 export const listInvitations = async (
   authContext: AuthContext,
-  filters: ListInvitationsQuery,
-): Promise<InvitationWithRole[]> => {
+  query: ListInvitationsQuery,
+): Promise<Paginated<InvitationWithRole>> => {
+  const { page, limit, ...filters } = query;
   await invitationsRepo.expireStaleInvitations(authContext.orgId);
-  return await invitationsRepo.listInvitations(authContext.orgId, filters);
+  return await invitationsRepo.listInvitations(authContext.orgId, filters, {
+    page,
+    limit,
+  });
 };
 
 export const resendInvitation = async (
@@ -174,6 +190,15 @@ export const resendInvitation = async (
     throw new InternalServerError("Failed to send invitation email");
   }
 
+  await recordAudit({
+    action: AUDIT_ACTIONS.INVITATION_RESENT,
+    resource: "INVITATION",
+    actorUserId: authContext.userId,
+    organizationId: orgId,
+    targetId: invitation.id,
+    metadata: { email: invitation.email },
+  });
+
   return invitation;
 };
 
@@ -188,6 +213,14 @@ export const revokeInvitation = async (
   const revoked = await invitationsRepo.revokeInvitation(orgId, invitationId);
 
   if (revoked) {
+    await recordAudit({
+      action: AUDIT_ACTIONS.INVITATION_REVOKED,
+      resource: "INVITATION",
+      actorUserId: authContext.userId,
+      organizationId: orgId,
+      targetId: invitationId,
+      metadata: { email: revoked.email },
+    });
     return;
   }
 
@@ -277,6 +310,17 @@ export const acceptInvitation = async (
   const accepted = await invitationsRepo.acceptInvitation(
     invitation.id,
     userId,
+    (created) => ({
+      action: AUDIT_ACTIONS.INVITATION_ACCEPTED,
+      resource: "INVITATION",
+      actorUserId: userId,
+      organizationId: created.organization_id,
+      targetId: invitation.id,
+      metadata: {
+        membership_id: created.membership_id,
+        role_id: invitation.role_id,
+      },
+    }),
   );
 
   if (!accepted) {
@@ -296,4 +340,12 @@ export const declineInvitation = async (
   if (!(await invitationsRepo.rejectInvitation(invitation.id))) {
     throw new NotFoundError("Invitation");
   }
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.INVITATION_DECLINED,
+    resource: "INVITATION",
+    actorUserId: userId,
+    organizationId: invitation.organization_id,
+    targetId: invitation.id,
+  });
 };

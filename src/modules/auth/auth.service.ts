@@ -12,6 +12,7 @@ import {
 } from "./auth.repo";
 import { LoginUserInput, RegisterUserInput } from "./auth.schema";
 import argon2 from "argon2";
+import { randomBytes } from "node:crypto";
 import { LoginResult, PublicUser, RefreshResult } from "./auth.types";
 import { convertToPublicUser, generateOtp } from "./auth.utils";
 import { signInToken } from "../../lib/jwt";
@@ -26,7 +27,13 @@ import {
   rotateSession,
 } from "../sessions/sessions.repo";
 import { denyAccessForSessions } from "../../lib/accessTokenDenylist";
-import { sendVerificationEmail } from "../../common-services/mail.service";
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "../../common-services/mail.service";
+import { describeDevice } from "../../lib/deviceName";
+import { recordAudit } from "../audit/audit.service";
+import { AUDIT_ACTIONS } from "../audit/audit.types";
 import { redisClient } from "../../lib/redis";
 import { logger } from "../../lib/logger";
 import {
@@ -34,12 +41,18 @@ import {
   getUserByEmail,
   getUserById,
   isUserExists,
+  updatePasswordHash,
 } from "../users/user.repo";
 import { MAX_OTP_ATTEMPTS } from "../../constants";
 
 const emailVerifyKey = (userId: string) => `email_verify:${userId}`;
 const emailVerifyAttemptsKey = (userId: string) =>
   `email_verify_attempts:${userId}`;
+// Keyed by the token's hash so the raw token never sits in Redis. The per-user
+// key points at the live token so a new request can kill the previous one.
+const passwordResetKey = (tokenHash: string) => `password_reset:${tokenHash}`;
+const passwordResetUserKey = (userId: string) =>
+  `password_reset_user:${userId}`;
 
 export const registerUser = async (
   userInput: RegisterUserInput,
@@ -59,6 +72,13 @@ export const registerUser = async (
     display_name: userInput.display_name,
     email: userInput.email,
     password_hash,
+  });
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.USER_REGISTERED,
+    resource: "USER",
+    actorUserId: newUser.id,
+    targetId: newUser.id,
   });
 
   return convertToPublicUser(newUser);
@@ -97,6 +117,12 @@ export const loginUser = async (
   );
   if (!isValidPassword) {
     await updateLoginAttempt(user.id);
+    await recordAudit({
+      action: AUDIT_ACTIONS.USER_LOGIN_FAILED,
+      resource: "USER",
+      actorUserId: null,
+      targetId: user.id,
+    });
     throw new UnauthenticatedError("Invalid email or password");
   }
 
@@ -119,11 +145,19 @@ export const loginUser = async (
     expires_at: expiresAt,
     ip_address: meta?.ip_address ?? null,
     user_agent: meta?.user_agent ?? null,
+    device_name: describeDevice(meta?.user_agent),
   });
 
   const accessToken = signInToken(user.id, session.id);
 
   await recordSuccessfulLogin(user.id);
+  await recordAudit({
+    action: AUDIT_ACTIONS.USER_LOGIN,
+    resource: "USER",
+    actorUserId: user.id,
+    targetId: user.id,
+    metadata: { session_id: session.id },
+  });
 
   return {
     user: convertToPublicUser(user),
@@ -176,6 +210,7 @@ export const refreshAccessToken = async (
     expires_at: expiresAt,
     ip_address: meta?.ip_address ?? null,
     user_agent: meta?.user_agent ?? null,
+    device_name: describeDevice(meta?.user_agent),
     family_id: session.family_id,
   });
 
@@ -193,11 +228,26 @@ export const logoutSession = async (refreshToken: string): Promise<void> => {
 
   if (session && session.revoked_at === null) {
     await denyAccessForSessions(await revokeSession(session.id));
+    await recordAudit({
+      action: AUDIT_ACTIONS.USER_LOGOUT,
+      resource: "USER",
+      actorUserId: session.user_id,
+      targetId: session.user_id,
+      metadata: { session_id: session.id },
+    });
   }
 };
 
 export const logoutAllSessions = async (userId: string): Promise<void> => {
-  await denyAccessForSessions(await revokeAllUserSessions(userId));
+  const revoked = await revokeAllUserSessions(userId);
+  await denyAccessForSessions(revoked);
+  await recordAudit({
+    action: AUDIT_ACTIONS.USER_LOGOUT_ALL,
+    resource: "USER",
+    actorUserId: userId,
+    targetId: userId,
+    metadata: { revoked_sessions: revoked.length },
+  });
 };
 
 export const getCurrentUser = async (userId: string): Promise<PublicUser> => {
@@ -280,6 +330,96 @@ export const verifyEmail = async (
   await redisClient.del(attemptsKey);
   await updateEmailVerificationStatus(userId);
   await updateUserStatus(userId, "ACTIVE");
+  await recordAudit({
+    action: AUDIT_ACTIONS.USER_EMAIL_VERIFIED,
+    resource: "USER",
+    actorUserId: userId,
+    targetId: userId,
+  });
 
   return await getCurrentUser(userId);
+};
+
+const issuePasswordReset = async (userId: string): Promise<void> => {
+  const user = await getUserById(userId);
+  if (!user) {
+    return;
+  }
+
+  const token = randomBytes(32).toString("hex");
+  const tokenHash = hashToken(token);
+  const ttlSeconds = env.passwordResetTtlMinutes * 60;
+
+  const previousHash = await redisClient.get(passwordResetUserKey(userId));
+  const pipeline = redisClient.pipeline();
+  if (previousHash) {
+    pipeline.del(passwordResetKey(previousHash));
+  }
+  pipeline.setex(passwordResetKey(tokenHash), ttlSeconds, userId);
+  pipeline.setex(passwordResetUserKey(userId), ttlSeconds, tokenHash);
+  await pipeline.exec();
+
+  await sendPasswordResetEmail({
+    email: user.email,
+    displayName: user.display_name,
+    token,
+  });
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.USER_PASSWORD_RESET_REQUESTED,
+    resource: "USER",
+    actorUserId: null,
+    targetId: userId,
+  });
+};
+
+/**
+ * Responds the same way whether or not the address has an account. The token
+ * and email are produced off the request path, so response time does not
+ * reveal it either.
+ */
+export const requestPasswordReset = async (email: string): Promise<void> => {
+  const user = await getUserByEmail(email);
+  if (!user) {
+    return;
+  }
+
+  void issuePasswordReset(user.id).catch((error) => {
+    logger.error({ err: error }, "Failed to issue password reset");
+  });
+};
+
+export const resetPassword = async (
+  token: string,
+  newPassword: string,
+): Promise<void> => {
+  const tokenHash = hashToken(token);
+
+  // GETDEL makes the token single-use even under concurrent submissions.
+  const userId = await redisClient.getdel(passwordResetKey(tokenHash));
+  if (!userId) {
+    throw new BadRequestError("Reset link is invalid or has expired");
+  }
+  await redisClient.del(passwordResetUserKey(userId));
+
+  const user = await getUserById(userId);
+  if (!user) {
+    throw new BadRequestError("Reset link is invalid or has expired");
+  }
+
+  const passwordHash = await argon2.hash(newPassword, {
+    type: argon2.argon2id,
+  });
+  await updatePasswordHash(userId, passwordHash);
+
+  const revoked = await revokeAllUserSessions(userId);
+  await denyAccessForSessions(revoked);
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.USER_PASSWORD_RESET,
+    resource: "USER",
+    actorUserId: userId,
+    targetId: userId,
+    metadata: { revoked_sessions: revoked.length },
+  });
 };

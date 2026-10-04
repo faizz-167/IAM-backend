@@ -8,7 +8,10 @@ export const createSystemRolesController = async (
   next: NextFunction,
 ) => {
   try {
-    const systemRole = await roleService.createSystemRoles(req.body);
+    const systemRole = await roleService.createSystemRoles(
+      req.body,
+      req.userId as string,
+    );
 
     res
       .status(201)
@@ -27,7 +30,7 @@ export const assignPermissionToSystemRoles = async (
 ) => {
   try {
     const roleId = req.params.roleId as string;
-    await roleService.assignPermission(req.body, roleId);
+    await roleService.assignPermission(req.body, roleId, req.userId as string);
     res.status(200).json(success("Permission assigned successfully"));
   } catch (error) {
     next(error);
@@ -43,7 +46,11 @@ export const revokePermissionFromSystemRoles = async (
     const roleId = req.params.roleId as string;
     const permissionName = req.params.permissionName as string;
 
-    await roleService.revokePermission(roleId, permissionName);
+    await roleService.revokePermission(
+      roleId,
+      permissionName,
+      req.userId as string,
+    );
     res.status(200).json(success("Permission revoked successfully"));
   } catch (error) {
     next(error);

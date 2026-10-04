@@ -8,6 +8,7 @@ import { sessionsRouter } from "../modules/sessions/sessions.routes";
 import { invitationsRouter } from "../modules/invitations/invitations.routes";
 import { rolesRouter, systemRolesRouter } from "../modules/roles/roles.routes";
 import { permissionsRouter } from "../modules/permissions/permissions.routes";
+import { adminRouter } from "../modules/admin/admin.routes";
 
 export const apiRouter = Router();
 
@@ -21,3 +22,4 @@ apiRouter.use("/invitations", invitationsRouter);
 apiRouter.use("/roles", rolesRouter);
 apiRouter.use("/system-roles", systemRolesRouter);
 apiRouter.use("/permissions", permissionsRouter);
+apiRouter.use("/admin", adminRouter);

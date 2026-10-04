@@ -1,4 +1,7 @@
 import { db } from "../../database";
+import { recordAudit } from "../audit/audit.service";
+import { AuditBuilder } from "../audit/audit.types";
+import { paginate, Paginated, PaginationQuery } from "../../lib/pagination";
 import {
   CreateMemberShipInput,
   MembershipContext,
@@ -72,8 +75,9 @@ export const getMembershipContext = async (
 
 export const getOrganizationMembers = async (
   organizationId: string,
-  filters: MemberFilters = {},
-): Promise<Member[]> => {
+  filters: MemberFilters,
+  pagination: PaginationQuery,
+): Promise<Paginated<Member>> => {
   let query = db
     .selectFrom("memberships")
     .innerJoin("users", "users.id", "memberships.user_id")
@@ -91,7 +95,9 @@ export const getOrganizationMembers = async (
       "memberships.status as status",
       "memberships.created_at as created_at",
       "memberships.updated_at as updated_at",
-    ]);
+    ])
+    .orderBy("memberships.created_at", "asc")
+    .orderBy("memberships.id", "asc");
 
   if (filters.role) {
     query = query.where("roles.name", "=", filters.role);
@@ -101,9 +107,7 @@ export const getOrganizationMembers = async (
     query = query.where("memberships.status", "=", filters.status);
   }
 
-  const members = await query.execute();
-
-  return members;
+  return await paginate(query, pagination);
 };
 
 const MEMBERSHIP_COLUMNS = [
@@ -186,6 +190,7 @@ export const transferOwnershipAndLeave = async (
   ownerMembershipId: string,
   ownerRoleId: string,
   adminRoleId: string,
+  audit?: AuditBuilder<{ successorMembershipId: string }>,
 ): Promise<boolean> => {
   return await db.transaction().execute(async (trx) => {
     const successor = await trx
@@ -215,6 +220,10 @@ export const transferOwnershipAndLeave = async (
       .where("id", "=", ownerMembershipId)
       .where("organization_id", "=", organizationId)
       .execute();
+
+    if (audit) {
+      await recordAudit(audit({ successorMembershipId: successor.id }), trx);
+    }
 
     return true;
   });

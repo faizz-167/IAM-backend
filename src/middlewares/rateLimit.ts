@@ -5,13 +5,6 @@ import { redisClient } from "../lib/redis";
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 
-/**
- * Counters live in Redis, not in process memory: an in-memory store resets on
- * every deploy and counts each instance separately, which makes the login
- * limiter close to useless anywhere but a single long-lived box.
- *
- * Each limiter gets its own prefix so they do not share a counter.
- */
 const redisStore = (prefix: string) =>
   new RedisStore({
     prefix: `ratelimit:${prefix}:`,

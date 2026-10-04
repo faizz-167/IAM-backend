@@ -2,6 +2,8 @@ import { AssignPermissionInput, SystemRoleInput } from "./roles.schema";
 import * as roleRepo from "./roles.repo";
 import * as permissionRepo from "../permissions/permissions.repo";
 import { Role } from "./roles.types";
+import { recordAudit } from "../audit/audit.service";
+import { AUDIT_ACTIONS } from "../audit/audit.types";
 import {
   ConflictError,
   ForbiddenError,
@@ -10,14 +12,25 @@ import {
 
 export const createSystemRoles = async (
   input: SystemRoleInput,
+  actorUserId: string,
 ): Promise<Role> => {
   const role = await roleRepo.createSystemRole(input);
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.SYSTEM_ROLE_CREATED,
+    resource: "ROLE",
+    actorUserId,
+    targetId: role.id,
+    metadata: { name: role.name },
+  });
+
   return role;
 };
 
 export const assignPermission = async (
   input: AssignPermissionInput,
   roleId: string,
+  actorUserId: string,
 ): Promise<void> => {
   const role = await roleRepo.getRoleScopeById(roleId);
   if (!role) {
@@ -43,11 +56,20 @@ export const assignPermission = async (
   if (!assigned) {
     throw new ConflictError("Permission already assigned to role");
   }
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.SYSTEM_ROLE_PERMISSION_ASSIGNED,
+    resource: "ROLE",
+    actorUserId,
+    targetId: roleId,
+    metadata: { permission: permission.name },
+  });
 };
 
 export const revokePermission = async (
   roleId: string,
   permissionName: string,
+  actorUserId: string,
 ): Promise<void> => {
   const role = await roleRepo.getRoleScopeById(roleId);
   if (!role) {
@@ -60,6 +82,14 @@ export const revokePermission = async (
   }
 
   await roleRepo.revokePermissionFromRole(roleId, permission.id);
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.SYSTEM_ROLE_PERMISSION_REVOKED,
+    resource: "ROLE",
+    actorUserId,
+    targetId: roleId,
+    metadata: { permission: permission.name },
+  });
 };
 
 export const getSystemRoles = async (): Promise<Role[]> => {

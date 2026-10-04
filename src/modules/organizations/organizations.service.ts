@@ -24,16 +24,21 @@ import {
 } from "../permissions/permission.catalogue";
 import { Member, MemberFilters } from "../members/members.types";
 import { assertNoEscalation } from "../permissions/permissions.utils";
+import { recordAudit } from "../audit/audit.service";
+import { AUDIT_ACTIONS } from "../audit/audit.types";
+import { Paginated, PaginationQuery } from "../../lib/pagination";
 
 export const listOrganizations = async (
-  filters: ListOrganizationsQuery = {},
-): Promise<Organization[]> => {
-  return await organizationsRepo.getAllOrganizations(filters.status);
+  filters: ListOrganizationsQuery,
+): Promise<Paginated<Organization>> => {
+  const { page, limit, status } = filters;
+  return await organizationsRepo.getAllOrganizations(status, { page, limit });
 };
 
 export const updateOrganizationStatus = async (
   organizationId: string,
   status: Organization["status"],
+  actorUserId: string,
 ): Promise<Organization> => {
   const organization = await organizationsRepo.updateOrganizationStatus(
     organizationId,
@@ -44,12 +49,22 @@ export const updateOrganizationStatus = async (
     throw new NotFoundError("Organization");
   }
 
+  await recordAudit({
+    action: AUDIT_ACTIONS.ORGANIZATION_STATUS_CHANGED,
+    resource: "ORGANIZATION",
+    actorUserId,
+    organizationId,
+    targetId: organizationId,
+    metadata: { status },
+  });
+
   return organization;
 };
 
 export const updateOrganization = async (
   organizationId: string,
   organization: UpdateOrganizationInput,
+  actorUserId: string,
 ): Promise<Organization> => {
   const updatedOrganization = await organizationsRepo.updateOrganization(
     organizationId,
@@ -59,6 +74,15 @@ export const updateOrganization = async (
   if (!updatedOrganization) {
     throw new NotFoundError("Organization");
   }
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.ORGANIZATION_UPDATED,
+    resource: "ORGANIZATION",
+    actorUserId,
+    organizationId,
+    targetId: organizationId,
+    metadata: { changes: organization },
+  });
 
   return updatedOrganization;
 };
@@ -87,6 +111,14 @@ export const createOrganization = async (
     organization,
     userId,
     role.id,
+    (created) => ({
+      action: AUDIT_ACTIONS.ORGANIZATION_CREATED,
+      resource: "ORGANIZATION",
+      actorUserId: userId,
+      organizationId: created.id,
+      targetId: created.id,
+      metadata: { name: created.name, slug: created.slug },
+    }),
   );
 
   return convertToPublicOrganization(
@@ -120,6 +152,7 @@ export const getOrganization = async (
 
 export const deleteOrganization = async (
   organizationId: string,
+  actorUserId: string,
 ): Promise<void> => {
   const deletedOrganization =
     await organizationsRepo.deleteOrganization(organizationId);
@@ -127,12 +160,21 @@ export const deleteOrganization = async (
   if (!deletedOrganization) {
     throw new NotFoundError("Organization");
   }
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.ORGANIZATION_DELETED,
+    resource: "ORGANIZATION",
+    actorUserId,
+    organizationId,
+    targetId: organizationId,
+  });
 };
 
 export const createRole = async (
   organizationId: string,
   createRoleInput: CreateRoleInput,
   callerPermissions: Set<PermissionName>,
+  actorUserId: string,
 ): Promise<Role> => {
   assertNoEscalation(createRoleInput.permissions, callerPermissions);
 
@@ -148,6 +190,14 @@ export const createRole = async (
     createRoleInput.role_name,
     createRoleInput.role_description ?? null,
     permissions,
+    (created) => ({
+      action: AUDIT_ACTIONS.ROLE_CREATED,
+      resource: "ROLE",
+      actorUserId,
+      organizationId,
+      targetId: created.id,
+      metadata: { name: created.name, permissions: created.permissions },
+    }),
   );
 
   return newRole;
@@ -176,6 +226,7 @@ export const updateRole = async (
   organizationId: string,
   roleId: string,
   updateRoleInput: UpdateRoleInput,
+  actorUserId: string,
 ): Promise<Role> => {
   const updatedRole = await rolesRepo.updateRole(
     organizationId,
@@ -188,14 +239,35 @@ export const updateRole = async (
     throw new NotFoundError("Role");
   }
 
+  await recordAudit({
+    action: AUDIT_ACTIONS.ROLE_UPDATED,
+    resource: "ROLE",
+    actorUserId,
+    organizationId,
+    targetId: roleId,
+    metadata: {
+      name: updateRoleInput.role_name,
+      description: updateRoleInput.role_description,
+    },
+  });
+
   return updatedRole;
 };
 
 export const deleteRole = async (
   organizationId: string,
   roleId: string,
+  actorUserId: string,
 ): Promise<void> => {
   await rolesRepo.deleteRole(organizationId, roleId);
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.ROLE_DELETED,
+    resource: "ROLE",
+    actorUserId,
+    organizationId,
+    targetId: roleId,
+  });
 };
 
 export const updateRolePermissions = async (
@@ -203,6 +275,7 @@ export const updateRolePermissions = async (
   roleId: string,
   permissions: string[],
   callerPermissions: Set<PermissionName>,
+  actorUserId: string,
 ): Promise<Role> => {
   assertNoEscalation(permissions, callerPermissions);
 
@@ -216,7 +289,14 @@ export const updateRolePermissions = async (
     new Set<string>([...DEFAULT_ORGANIZATION_ROLE_PERMISSIONS, ...permissions]),
   );
 
-  await permissionsRepo.updateRolePermissions(roleId, permissionsWithDefaults);
+  await permissionsRepo.updateRolePermissions(roleId, permissionsWithDefaults, {
+    action: AUDIT_ACTIONS.ROLE_PERMISSIONS_UPDATED,
+    resource: "ROLE",
+    actorUserId,
+    organizationId,
+    targetId: roleId,
+    metadata: { before: role.permissions, after: permissionsWithDefaults },
+  });
 
   const updatedRole = await rolesRepo.getRoleById(organizationId, roleId);
 
@@ -229,12 +309,12 @@ export const updateRolePermissions = async (
 
 export const listOrganizationMembers = async (
   organizationId: string,
-  filters: MemberFilters = {},
-): Promise<Member[]> => {
-  const members = await membersRepo.getOrganizationMembers(
+  filters: MemberFilters,
+  pagination: PaginationQuery,
+): Promise<Paginated<Member>> => {
+  return await membersRepo.getOrganizationMembers(
     organizationId,
     filters,
+    pagination,
   );
-
-  return members;
 };

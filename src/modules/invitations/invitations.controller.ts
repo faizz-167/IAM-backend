@@ -33,11 +33,13 @@ export const listInvitationsController = async (
   try {
     const authContext = req.authContext as AuthContext;
     const filters = req.validatedQuery as ListInvitationsQuery;
-    const invitations = await invitationsService.listInvitations(
+    const result = await invitationsService.listInvitations(
       authContext,
       filters,
     );
-    res.status(200).json(success(invitations));
+    res
+      .status(200)
+      .json(success(result.items, { pagination: result.pagination }));
   } catch (error) {
     next(error);
   }

@@ -11,6 +11,8 @@ import { assertNoEscalation } from "../permissions/permissions.utils";
 import * as rolesRepo from "../roles/roles.repo";
 import * as membershipsRepo from "./members.repo";
 import { MemberShip } from "./members.types";
+import { recordAudit } from "../audit/audit.service";
+import { AUDIT_ACTIONS } from "../audit/audit.types";
 
 const OWNER_ROLE_NAME = "OWNER";
 const ADMIN_ROLE_NAME = "ADMIN";
@@ -67,7 +69,7 @@ export const updateMemberRole = async (
   membershipId: string,
   newRoleId: string,
 ): Promise<MemberShip> => {
-  await getManageableMembership(authContext, membershipId);
+  const membership = await getManageableMembership(authContext, membershipId);
 
   const role = await rolesRepo.getRoleById(authContext.orgId, newRoleId);
 
@@ -93,6 +95,19 @@ export const updateMemberRole = async (
     throw new NotFoundError("Membership");
   }
 
+  await recordAudit({
+    action: AUDIT_ACTIONS.MEMBERSHIP_ROLE_CHANGED,
+    resource: "MEMBERSHIP",
+    actorUserId: authContext.userId,
+    organizationId: authContext.orgId,
+    targetId: membershipId,
+    metadata: {
+      user_id: membership.user_id,
+      from_role_id: membership.role_id,
+      to_role_id: role.id,
+    },
+  });
+
   return updatedMember;
 };
 
@@ -101,7 +116,7 @@ export const updateMemberStatus = async (
   membershipId: string,
   newStatus: MemberShip["status"],
 ): Promise<MemberShip> => {
-  await getManageableMembership(authContext, membershipId);
+  const membership = await getManageableMembership(authContext, membershipId);
 
   const updatedMember = await membershipsRepo.updateMemberStatus(
     authContext.orgId,
@@ -113,6 +128,19 @@ export const updateMemberStatus = async (
     throw new NotFoundError("Membership");
   }
 
+  await recordAudit({
+    action: AUDIT_ACTIONS.MEMBERSHIP_STATUS_CHANGED,
+    resource: "MEMBERSHIP",
+    actorUserId: authContext.userId,
+    organizationId: authContext.orgId,
+    targetId: membershipId,
+    metadata: {
+      user_id: membership.user_id,
+      from: membership.status,
+      to: newStatus,
+    },
+  });
+
   return updatedMember;
 };
 
@@ -120,7 +148,7 @@ export const deleteMembership = async (
   authContext: AuthContext,
   membershipId: string,
 ): Promise<void> => {
-  await getManageableMembership(authContext, membershipId);
+  const membership = await getManageableMembership(authContext, membershipId);
 
   const deleted = await membershipsRepo.deleteMembership(
     authContext.orgId,
@@ -130,6 +158,15 @@ export const deleteMembership = async (
   if (!deleted) {
     throw new NotFoundError("Membership");
   }
+
+  await recordAudit({
+    action: AUDIT_ACTIONS.MEMBERSHIP_REMOVED,
+    resource: "MEMBERSHIP",
+    actorUserId: authContext.userId,
+    organizationId: authContext.orgId,
+    targetId: membershipId,
+    metadata: { user_id: membership.user_id, role_id: membership.role_id },
+  });
 };
 
 export const deleteMyMembership = async (
@@ -137,11 +174,23 @@ export const deleteMyMembership = async (
 ): Promise<void> => {
   const ownerRoleId = await getSystemRoleId(OWNER_ROLE_NAME);
 
+  const leftEntry = {
+    action: AUDIT_ACTIONS.MEMBERSHIP_LEFT,
+    resource: "MEMBERSHIP" as const,
+    actorUserId: authContext.userId,
+    organizationId: authContext.orgId,
+    targetId: authContext.membershipId,
+  };
+
   if (authContext.roleId !== ownerRoleId) {
     await membershipsRepo.deleteMembership(
       authContext.orgId,
       authContext.membershipId,
     );
+    await recordAudit({
+      ...leftEntry,
+      metadata: { role_id: authContext.roleId },
+    });
     return;
   }
 
@@ -150,6 +199,13 @@ export const deleteMyMembership = async (
     authContext.membershipId,
     ownerRoleId,
     await getSystemRoleId(ADMIN_ROLE_NAME),
+    ({ successorMembershipId }) => ({
+      ...leftEntry,
+      metadata: {
+        role_id: ownerRoleId,
+        ownership_transferred_to: successorMembershipId,
+      },
+    }),
   );
 
   if (!transferred) {

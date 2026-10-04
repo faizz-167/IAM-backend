@@ -54,7 +54,9 @@ function numberEnv(key: string, fallback: number): number {
 
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) {
-    throw new Error(`Environment variable ${key} must be a number, got "${raw}"`);
+    throw new Error(
+      `Environment variable ${key} must be a number, got "${raw}"`,
+    );
   }
 
   return parsed;
@@ -92,5 +94,6 @@ export const env = {
   // Frontend base URL that invitation emails link to.
   appUrl: (process.env.APP_URL ?? "http://localhost:5173").replace(/\/+$/, ""),
   invitationTtlDays: numberEnv("INVITATION_TTL_DAYS", 7),
+  passwordResetTtlMinutes: numberEnv("PASSWORD_RESET_TTL_MINUTES", 30),
   shutdownTimeoutMs: numberEnv("SHUTDOWN_TIMEOUT_MS", 10_000),
 };

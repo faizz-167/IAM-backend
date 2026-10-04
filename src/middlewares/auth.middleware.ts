@@ -19,8 +19,6 @@ export const authenticate = async (
     const token = authHeader.slice("Bearer ".length).trim();
     const { userId, sessionId } = verifyToken(token);
 
-    // A signature alone is not enough: logout revokes the session behind the
-    // token, and that revocation has to bite before the token's own expiry.
     if (await isAccessDenied(sessionId)) {
       throw new UnauthorizedError("Session has been revoked");
     }

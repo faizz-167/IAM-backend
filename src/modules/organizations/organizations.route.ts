@@ -16,6 +16,8 @@ import {
 import * as organizationsController from "./organizations.controller";
 import * as membersController from "../members/members.controller";
 import * as invitationController from "../invitations/invitations.controller";
+import * as auditController from "../audit/audit.controller";
+import { listOrganizationAuditLogsQuerySchema } from "../audit/audit.schema";
 import { authenticate } from "../../middlewares/auth.middleware";
 import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
 import { setOrgId } from "../../middlewares/organization.middleware";
@@ -240,4 +242,14 @@ organizationsRouter.delete(
   getAuthContext,
   requirePermission(PERMISSIONS.MEMBERSHIP_CREATE),
   invitationController.revokeInvitationController,
+);
+
+organizationsRouter.get(
+  "/:orgId/audit-logs",
+  validateParams(organizationIdParamSchema),
+  validateQuery(listOrganizationAuditLogsQuerySchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.AUDIT_READ),
+  auditController.listOrganizationAuditLogsController,
 );

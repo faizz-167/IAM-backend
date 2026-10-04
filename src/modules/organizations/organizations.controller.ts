@@ -13,8 +13,10 @@ export const listOrganizationsController = async (
 ) => {
   try {
     const filters = req.validatedQuery as ListOrganizationsQuery;
-    const organizations = await organizationsService.listOrganizations(filters);
-    res.status(200).json(success(organizations));
+    const result = await organizationsService.listOrganizations(filters);
+    res
+      .status(200)
+      .json(success(result.items, { pagination: result.pagination }));
   } catch (error) {
     next(error);
   }
@@ -29,6 +31,7 @@ export const updateOrganizationStatusController = async (
     const organization = await organizationsService.updateOrganizationStatus(
       req.params.orgId as string,
       req.body.status,
+      req.userId as string,
     );
     res.status(200).json(
       success(organization, {
@@ -101,6 +104,7 @@ export const updateOrganizationController = async (
     const organization = await organizationsService.updateOrganization(
       orgId,
       req.body,
+      req.userId as string,
     );
     res.status(200).json(
       success(organization, {
@@ -119,7 +123,7 @@ export const deleteOrganizationController = async (
 ) => {
   try {
     const orgId = req.orgId as string;
-    await organizationsService.deleteOrganization(orgId);
+    await organizationsService.deleteOrganization(orgId, req.userId as string);
     res.status(200).json(
       success(null, {
         message: "Organization deleted successfully",
@@ -141,6 +145,7 @@ export const createRoleController = async (
       orgId,
       req.body,
       req.authContext!.permissions,
+      req.userId as string,
     );
     res.status(201).json(
       success(newRole, {
@@ -193,6 +198,7 @@ export const updateRoleController = async (
       orgId,
       roleId,
       req.body,
+      req.userId as string,
     );
     res.status(200).json(
       success(updatedRole, {
@@ -212,7 +218,7 @@ export const deleteRoleController = async (
   try {
     const orgId = req.orgId as string;
     const roleId = req.params.roleId as string;
-    await organizationsService.deleteRole(orgId, roleId);
+    await organizationsService.deleteRole(orgId, roleId, req.userId as string);
     res.status(200).json(
       success(null, {
         message: "Role deleted successfully",
@@ -236,6 +242,7 @@ export const updateRolePermissionsController = async (
       roleId,
       req.body.permissions,
       req.authContext!.permissions,
+      req.userId as string,
     );
     res.status(200).json(
       success(updatedRole, {
@@ -254,12 +261,16 @@ export const listOrganizationMembersController = async (
 ) => {
   try {
     const orgId = req.orgId as string;
-    const filters = req.validatedQuery as ListOrganizationMembersQuery;
-    const members = await organizationsService.listOrganizationMembers(
+    const { page, limit, ...filters } =
+      req.validatedQuery as ListOrganizationMembersQuery;
+    const result = await organizationsService.listOrganizationMembers(
       orgId,
       filters,
+      { page, limit },
     );
-    res.status(200).json(success(members));
+    res
+      .status(200)
+      .json(success(result.items, { pagination: result.pagination }));
   } catch (error) {
     next(error);
   }

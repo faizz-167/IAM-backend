@@ -12,7 +12,10 @@ import {
 import { ConflictError, InternalServerError } from "../../errors/RequestError";
 import { PG_UNIQUE_VIOLATION } from "../../constants";
 import { sql } from "kysely";
+import { paginate, Paginated, PaginationQuery } from "../../lib/pagination";
 import { logger } from "../../lib/logger";
+import { recordAudit } from "../audit/audit.service";
+import { AuditBuilder } from "../audit/audit.types";
 
 const ORG_COLUMNS = [
   "id",
@@ -24,7 +27,10 @@ const ORG_COLUMNS = [
   "updated_at",
 ] as const;
 
-export const getAllOrganizations = async (status?: OrganizationStatus) => {
+export const getAllOrganizations = async (
+  status: OrganizationStatus | undefined,
+  pagination: PaginationQuery,
+): Promise<Paginated<Organization>> => {
   let query = db
     .selectFrom("organizations")
     .where("deleted_at", "is", null)
@@ -35,7 +41,7 @@ export const getAllOrganizations = async (status?: OrganizationStatus) => {
     query = query.where("status", "=", status);
   }
 
-  return await query.execute();
+  return await paginate(query, pagination);
 };
 
 export const getOrganizationById = async (organizationId: string) => {
@@ -87,6 +93,7 @@ export const createOrganization = async (
   organization: CreateOrganizationInput,
   userId: string,
   roleId: string,
+  audit?: AuditBuilder<Organization>,
 ): Promise<Organization> => {
   try {
     const newOrganization = await db.transaction().execute(async (trx) => {
@@ -108,6 +115,10 @@ export const createOrganization = async (
           role_id: roleId,
         })
         .executeTakeFirstOrThrow();
+
+      if (audit) {
+        await recordAudit(audit(organizationRecord), trx);
+      }
 
       return organizationRecord;
     });
