@@ -15,6 +15,7 @@ import {
 } from "./organizations.schema";
 import * as organizationsController from "./organizations.controller";
 import * as membersController from "../members/members.controller";
+import * as invitationController from "../invitations/invitations.controller";
 import { authenticate } from "../../middlewares/auth.middleware";
 import { requireSuperAdmin } from "../../middlewares/requireSuperAdmin";
 import { setOrgId } from "../../middlewares/organization.middleware";
@@ -26,6 +27,11 @@ import {
   updateRolePermissionsSchema,
 } from "../roles/roles.schema";
 import { membershipIdParamSchema } from "../members/members.schema";
+import {
+  createInvitationSchema,
+  invitationIdParamSchema,
+  listInvitationsQuerySchema,
+} from "../invitations/invitations.schema";
 
 export const organizationsRouter = Router({ mergeParams: true });
 
@@ -194,4 +200,44 @@ organizationsRouter.delete(
   getAuthContext,
   requirePermission(PERMISSIONS.MEMBERSHIP_DELETE),
   membersController.deleteMembershipController,
+);
+
+organizationsRouter.post(
+  "/:orgId/invitations",
+  validateParams(organizationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_CREATE),
+  validateBody(createInvitationSchema),
+  invitationController.createInvitationController,
+);
+
+organizationsRouter.get(
+  "/:orgId/invitations",
+  validateParams(organizationIdParamSchema),
+  validateQuery(listInvitationsQuerySchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_READ),
+  invitationController.listInvitationsController,
+);
+
+organizationsRouter.post(
+  "/:orgId/invitations/:invitationId/resend",
+  validateParams(organizationIdParamSchema),
+  validateParams(invitationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_CREATE),
+  invitationController.resendInvitationController,
+);
+
+organizationsRouter.delete(
+  "/:orgId/invitations/:invitationId",
+  validateParams(organizationIdParamSchema),
+  validateParams(invitationIdParamSchema),
+  setOrgId,
+  getAuthContext,
+  requirePermission(PERMISSIONS.MEMBERSHIP_CREATE),
+  invitationController.revokeInvitationController,
 );

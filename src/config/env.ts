@@ -89,5 +89,8 @@ export const env = {
     from: checkRequiredEnvVars("SMTP_FROM"),
   },
   emailVerificationTtlMinutes: numberEnv("EMAIL_VERIFICATION_TTL_MINUTES", 15),
+  // Frontend base URL that invitation emails link to.
+  appUrl: (process.env.APP_URL ?? "http://localhost:5173").replace(/\/+$/, ""),
+  invitationTtlDays: numberEnv("INVITATION_TTL_DAYS", 7),
   shutdownTimeoutMs: numberEnv("SHUTDOWN_TIMEOUT_MS", 10_000),
 };

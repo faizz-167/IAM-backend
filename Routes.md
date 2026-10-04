@@ -166,20 +166,20 @@ the product multi-user.
 
 ### Org-side (managing invitations)
 
-- [ ] `POST /organizations/:orgId/invitations` — `ctx:MEMBERSHIP:CREATE` ·
+- [x] `POST /organizations/:orgId/invitations` — `ctx:MEMBERSHIP:CREATE` ·
       emails a token, stores only `token_hash`
-- [ ] `GET /organizations/:orgId/invitations` — `ctx:MEMBERSHIP:READ`
-- [ ] `POST /organizations/:orgId/invitations/:invitationId/resend` — `ctx:MEMBERSHIP:CREATE` ·
+- [x] `GET /organizations/:orgId/invitations` — `ctx:MEMBERSHIP:READ`
+- [x] `POST /organizations/:orgId/invitations/:invitationId/resend` — `ctx:MEMBERSHIP:CREATE` ·
       new token, new expiry
-- [ ] `DELETE /organizations/:orgId/invitations/:invitationId` — `ctx:MEMBERSHIP:CREATE` ·
+- [x] `DELETE /organizations/:orgId/invitations/:invitationId` — `ctx:MEMBERSHIP:CREATE` ·
       status `REVOKED`
 
 ### Invitee-side (`/invitations`, no org context — the invitee is not a member yet)
 
-- [ ] `GET /invitations/:token` — — · preview: org name and role only. Leak
+- [x] `GET /invitations/:token` — — · preview: org name and role only. Leak
       nothing else; the token is the only credential.
-- [ ] `POST /invitations/:token/accept` — `auth` · creates the membership
-- [ ] `POST /invitations/:token/decline` — `auth` · status `REJECTED`
+- [x] `POST /invitations/:token/accept` — `auth` · creates the membership
+- [x] `POST /invitations/:token/decline` — `auth` · status `REJECTED`
 
 Decisions to settle before writing this:
 
@@ -196,6 +196,21 @@ Decisions to settle before writing this:
   tokens. Never store the raw value.
 - Expiry is not enforced by the database. Check `expires_at` on read and flip
   the status to `EXPIRED`.
+
+Settled:
+
+- Invitations ride on `MEMBERSHIP:*`. No `INVITATION` resource, no migration.
+- Accept and decline require the caller to own the invited address on a
+  verified `user_emails` row. Any other account gets 403, so a leaked token is
+  worthless without the inbox.
+- Every non-actionable token (unknown, closed, expired, org deleted) returns the
+  same 404. The invitee routes sit behind `authLimiter`, which only counts
+  failures.
+- Resend works on PENDING and EXPIRED rows, rotates the token, restarts the
+  clock, and re-runs the escalation check against the resender.
+- Accept claims the row with a guarded `UPDATE ... WHERE status = 'PENDING'`
+  and inserts the membership in the same transaction, so a double accept
+  cannot create two memberships.
 
 ---
 
